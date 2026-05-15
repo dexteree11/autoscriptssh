@@ -1,7 +1,14 @@
 # File: /opt/imagitech/lib/system.sh
 # Purpose: Core system utilities and logging.
 
-source /opt/imagitech/core/imagitech.conf
+# Safely source config ONLY if it exists (prevents errors on fresh install)
+if [ -f /opt/imagitech/core/imagitech.conf ]; then
+    source /opt/imagitech/core/imagitech.conf
+fi
+
+# Fallback values for early execution before config is generated
+LOG_DIR="${LOG_DIR:-/opt/imagitech/logs}"
+DB_PATH="${DB_PATH:-/opt/imagitech/core/database.db}"
 
 log_event() {
     local level="$1"
@@ -9,7 +16,7 @@ log_event() {
     local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
     local log_file="${LOG_DIR}/imagitech.log"
     
-    # Ensure log directory exists
+    # Ensure log directory exists safely
     mkdir -p "$LOG_DIR"
     
     echo "[$timestamp] [$level] $message" >> "$log_file"
@@ -31,4 +38,3 @@ check_root() {
         exit 1
     fi
 }
-
