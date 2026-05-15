@@ -74,6 +74,46 @@ create_trial_user() {
     return 0
 }
 
+renew_user() {
+    local username="$1"
+    local mod_days="$2"
+
+    if [[ -z "$username" || -z "$mod_days" ]]; then
+        log_event "ERROR" "Missing arguments for user renewal."
+        return 1
+    fi
+
+    # 1. Fetch current expiry from database
+    local current_expiry=$(db_query "SELECT expiry_date FROM users WHERE username='$username';")
+    if [[ -z "$current_expiry" ]]; then
+        log_event "ERROR" "User $username not found in database."
+        return 2
+    fi
+
+    # 2. Calculate the new exact timestamp
+    # By passing the current expiry into the date command, it accurately adds/subtracts from that point
+    local new_exp_date=$(date -d "$current_expiry $mod_days days" +"%Y-%m-%d %H:%M:%S" 2>/dev/null)
+    
+    if [[ -z "$new_exp_date" ]]; then
+         log_event "ERROR" "Failed to calculate new expiry date. Invalid date math."
+         return 3
+    fi
+
+    # 3. Calculate OS-level expiration string (YYYY-MM-DD)
+    local os_exp_date=$(date -d "$new_exp_date" +"%Y-%m-%d")
+
+    # 4. Update the Linux PAM Account
+    # This ensures Dropbear and Dante respect the new expiration limit natively
+    usermod -e "$os_exp_date" "$username" >/dev/null 2>&1
+
+    # 5. Update the Database
+    # We set status back to ACTIVE just in case they were previously EXPIRED
+    db_query "UPDATE users SET expiry_date='$new_exp_date', status='ACTIVE' WHERE username='$username';"
+
+    log_event "INFO" "Successfully modified user $username. Expiry shifted by $mod_days days to $new_exp_date."
+    return 0
+}
+
 delete_vpn_user() {
     local username="$1"
     
