@@ -388,7 +388,10 @@ print_user_receipt() {
 menu_domain_ssl() {
     while true; do
         clear
-        PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+        # Re-source config inside the loop so the UI updates dynamically if a domain changes
+        source /opt/imagitech/core/imagitech.conf
+        local PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+        
         draw_line
         echo -e "                   ${BOLD}DOMAIN & SSL${NC}                     "
         draw_line
@@ -407,11 +410,42 @@ menu_domain_ssl() {
         read -p " Select Option : " opt
 
         case $opt in
-            1) echo "Calling API: imagitech config host..."; pause ;;
-            2) echo "Calling API: imagitech config ns..."; pause ;;
-            3) echo "Calling API: imagitech cert renew..."; pause ;;
-            4) echo "Calling API: imagitech cert status..."; pause ;;
-            5) echo "Calling API: imagitech dnstt renew..."; pause ;;
+            1) 
+                echo -e "\n${CYAN}Current Domain: ${PRIMARY_DOMAIN}${NC}"
+                read -p "Enter New Host Domain: " new_host
+                if [[ -n "$new_host" ]]; then
+                    /opt/imagitech/bin/imagitech config host "$new_host"
+                    echo ""
+                    read -p "Renew Let's Encrypt SSL for $new_host now? (y/n): " do_ssl
+                    if [[ "$do_ssl" =~ ^[Yy] ]]; then
+                        echo -e "\n${ORANGE}[*] Requesting Certificate... this takes 30-60 seconds...${NC}"
+                        /opt/imagitech/bin/imagitech cert renew "$new_host"
+                    fi
+                fi
+                pause ;;
+            2) 
+                echo -e "\n${CYAN}Current NS Domain: ${NS_DOMAIN}${NC}"
+                read -p "Enter New NS Domain: " new_ns
+                if [[ -n "$new_ns" ]]; then
+                    /opt/imagitech/bin/imagitech config ns "$new_ns"
+                fi
+                pause ;;
+            3) 
+                echo -e "\n${ORANGE}[*] Requesting Let's Encrypt Certificate. Services will temporarily pause...${NC}"
+                /opt/imagitech/bin/imagitech cert renew "$PRIMARY_DOMAIN"
+                pause ;;
+            4) 
+                clear
+                echo -e "${CYAN}=== ACME.SH CERTIFICATE STATUS ===${NC}"
+                /root/.acme.sh/acme.sh --list 2>/dev/null || echo -e "${RED}acme.sh is not installed yet.${NC}"
+                pause ;;
+            5) 
+                echo -e "\n${ORANGE}[*] Warning: Generating a new key will break existing SlowDNS clients.${NC}"
+                read -p "Are you sure? (y/n): " confirm_dnstt
+                if [[ "$confirm_dnstt" =~ ^[Yy] ]]; then
+                    /opt/imagitech/bin/imagitech dnstt renew
+                fi
+                pause ;;
             0) return ;;
             *) echo -e "${RED}Invalid option${NC}"; sleep 1 ;;
         esac
