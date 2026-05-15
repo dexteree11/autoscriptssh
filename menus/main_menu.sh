@@ -146,12 +146,86 @@ execute_add_user() {
 execute_del_user() {
     clear
     echo -e "${CYAN}=== DELETE VPN ACCOUNT ===${NC}"
-    read -p "Username: " USERNAME
     
-    /opt/imagitech/bin/imagitech user del "$USERNAME"
+    # Check if there are any users to delete
+    local user_count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users;")
+    if [ "$user_count" -eq 0 ]; then
+        echo -e "\n${ORANGE}[!] No active users found in the database.${NC}"
+        sleep 2
+        show_dashboard
+        return
+    fi
+
+    # Print the table header
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    printf "${BOLD}%-5s | %-15s | %-15s${NC}\n" "S/N" "USERNAME" "EXPIRES ON"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
-    echo -e "\n${GREEN}[+] Deletion request processed for $USERNAME.${NC}"
-    sleep 2
+    # Fetch users into an array for easy selection
+    mapfile -t USER_LIST < <(sqlite3 -separator '|' "$DB_PATH" "SELECT username, expiry_date FROM users;")
+    
+    local i=1
+    for user_data in "${USER_LIST[@]}"; do
+        local uname=$(echo "$user_data" | cut -d'|' -f1)
+        # Extract just the YYYY-MM-DD part for the table display
+        local exp=$(echo "$user_data" | cut -d'|' -f2 | cut -d' ' -f1)
+        printf "${GREEN}%-5s${NC} | ${CYAN}%-15s${NC} | ${ORANGE}%-15s${NC}\n" "$i" "$uname" "$exp"
+        ((i++))
+    done
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${ORANGE}[0] Cancel and return to dashboard${NC}\n"
+
+    read -p "Select S/N or type Username to delete: " TARGET_USER
+    
+    if [[ "$TARGET_USER" == "0" ]]; then
+        show_dashboard
+        return
+    fi
+
+    local FINAL_USERNAME=""
+    local FINAL_EXPIRY=""
+
+    # Check if the input is a valid S/N number
+    if [[ "$TARGET_USER" =~ ^[0-9]+$ ]] && [ "$TARGET_USER" -le "${#USER_LIST[@]}" ] && [ "$TARGET_USER" -gt 0 ]; then
+        local index=$((TARGET_USER - 1))
+        FINAL_USERNAME=$(echo "${USER_LIST[$index]}" | cut -d'|' -f1)
+        FINAL_EXPIRY=$(echo "${USER_LIST[$index]}" | cut -d'|' -f2)
+    else
+        # Otherwise, check if the input matches a username exactly
+        for user_data in "${USER_LIST[@]}"; do
+            local uname=$(echo "$user_data" | cut -d'|' -f1)
+            if [[ "$uname" == "$TARGET_USER" ]]; then
+                FINAL_USERNAME="$uname"
+                FINAL_EXPIRY=$(echo "$user_data" | cut -d'|' -f2)
+                break
+            fi
+        done
+    fi
+
+    # Reject if we couldn't match the input to a user
+    if [[ -z "$FINAL_USERNAME" ]]; then
+        echo -e "\n${RED}[-] Invalid selection or user does not exist.${NC}"
+        sleep 2
+        execute_del_user
+        return
+    fi
+
+    # Call the backend API
+    /opt/imagitech/bin/imagitech user del "$FINAL_USERNAME" > /dev/null 2>&1
+    
+    # Format the expiry date for the receipt
+    local EXP_DATE_FORMATTED=$(date -d "$FINAL_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$FINAL_EXPIRY")
+
+    clear
+    echo -e "${GREEN}Account deleted successfully${NC}       "
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "Username      : ${RED}${FINAL_USERNAME}${NC}"
+    echo -e "Expires On    : ${ORANGE}${EXP_DATE_FORMATTED}${NC}"
+    echo -e "Status        : ${RED}Deleted${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    echo ""
+    read -n 1 -s -r -p "Press any key to return to dashboard..."
     show_dashboard
 }
 
