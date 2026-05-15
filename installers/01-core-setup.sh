@@ -26,6 +26,11 @@ for pkg in "${PACKAGES[@]}"; do
     ensure_package "$pkg"
 done
 
+log_event "INFO" "Whitelisting VPN user shell for Dropbear..."
+if ! grep -qxF '/bin/false' /etc/shells; then
+    echo "/bin/false" >> /etc/shells
+fi
+
 # 3. Safe Configuration Generation
 CONF_FILE="/opt/imagitech/core/imagitech.conf"
 if [ ! -f "$CONF_FILE" ]; then
