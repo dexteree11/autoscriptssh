@@ -8,7 +8,7 @@ source /opt/imagitech/lib/installer_utils.sh
 log_event "INFO" "Deploying Phase 3: Sidecar Protocols"
 
 # Define your raw binary hosting URL
-BINARY_URL="https://raw.githubusercontent.com/dexteree11/imagitech-vpn/main/binaries"
+BINARY_URL="https://raw.githubusercontent.com/dexteree11/autoscriptssh/main/binaries"
 IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
 
 safe_download_binary() {
