@@ -37,6 +37,43 @@ create_vpn_user() {
     return 0
 }
 
+create_trial_user() {
+    local username="$1"
+    local password="$2"
+    local hours="$3"
+    
+    if [[ -z "$username" || -z "$password" || -z "$hours" ]]; then
+        log_event "ERROR" "Missing arguments for trial user creation."
+        return 1
+    fi
+
+    # Check if user already exists in DB
+    local exists=$(db_query "SELECT COUNT(*) FROM users WHERE username='$username';")
+    if [ "$exists" -gt 0 ]; then
+        log_event "WARN" "User $username already exists."
+        return 2
+    fi
+
+    # Calculate exact expiry timestamp for the database (hours/minutes)
+    local exp_date=$(date -d "+${hours} hours" +"%Y-%m-%d %H:%M:%S")
+    
+    # Calculate OS expiry (days) to satisfy the Linux PAM requirement.
+    # We round up to ensure the OS doesn't kill it before the Python Daemon does.
+    local os_days=$(( (hours + 23) / 24 ))
+    local os_exp_date=$(date -d "+${os_days} days" +"%Y-%m-%d")
+
+    # 1. Create Linux PAM User
+    useradd -e "$os_exp_date" -s /bin/false -M "$username" >/dev/null 2>&1
+    echo "$username:$password" | chpasswd
+
+    # 2. Insert precise metadata to SQLite
+    local uuid=$(uuidgen)
+    db_query "INSERT INTO users (username, uuid, expiry_date) VALUES ('$username', '$uuid', '$exp_date');"
+
+    log_event "INFO" "Successfully provisioned trial user: $username for $hours hours."
+    return 0
+}
+
 delete_vpn_user() {
     local username="$1"
     
