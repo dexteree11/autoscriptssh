@@ -49,66 +49,98 @@ check_service() {
 
 # --- Sub-Routines (Calling the API) ---
 execute_add_user() {
-    clear
-    echo -e "${CYAN}=== CREATE ISP BYPASS ACCOUNT ===${NC}"
-    read -p "Username: " USERNAME
-    read -p "Password: " PASSWORD
-    read -p "Duration (Days): " DAYS
-
-    # Call the backend API and suppress its background logs so it doesn't mess up our UI
-    /opt/imagitech/bin/imagitech user add "$USERNAME" "$PASSWORD" "$DAYS" > /dev/null 2>&1
-    
-    if [ $? -eq 0 ]; then
-        # Fetch dynamic data for the payload printout
-        IP_ADDR=$(curl -sS ipv4.icanhazip.com)
-        PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
-        
-        # Format date as "May 22, 2026"
-        EXP_DATE_FORMATTED=$(date -d "+${DAYS} days" +"%B %d, %Y")
-
+    while true; do
         clear
-        echo -e "${GREEN}Account provisioned successfully${NC}       "
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "Username      : ${GREEN}${USERNAME}${NC}"
-        echo -e "Password      : ${GREEN}${PASSWORD}${NC}"
-        echo -e "Expires On    : ${ORANGE}${EXP_DATE_FORMATTED}${NC}"
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "         ${BOLD}SERVER INFORMATION${NC}          "
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "IP            : ${GREEN}${IP_ADDR}${NC}"
-        echo -e "Host          : ${GREEN}${PRIMARY_DOMAIN}${NC}"
-        echo -e "Nameserver    : ${GREEN}${NS_DOMAIN}${NC}"
-        echo -e "PubKey        : ${ORANGE}${PUB_KEY}${NC}"
-        echo -e "OpenSSH       : ${PORT_SSH:-22}"
-        echo -e "SSH-WS        : ${PORT_WS_HTTP:-80}"
-        echo -e "Custom SSH    : 8880"
-        echo -e "SSH-SSL-WS    : ${PORT_WS_HTTPS:-443}"
-        echo -e "Dropbear      : ${PORT_DROPBEAR:-109}, 143"
-        echo -e "SSL/TLS       : 447, 777"
-        echo -e "SOCKS5        : ${PORT_SOCKS:-1080}"
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "SSH-80        : ${PRIMARY_DOMAIN}:80@${USERNAME}:${PASSWORD}"
-        echo -e "SSH-8880      : ${PRIMARY_DOMAIN}:8880@${USERNAME}:${PASSWORD}"
-        echo -e "SSH-443       : ${PRIMARY_DOMAIN}:443@${USERNAME}:${PASSWORD}"
-        echo -e "SOCKS5        : ${PRIMARY_DOMAIN}:1080:${USERNAME}:${PASSWORD}"
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "${ORANGE}(Payload WSS)${NC}"
-        echo -e "GET wss://bug.com [protocol][crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
-        echo -e "\n${ORANGE}(Payload WS - Port 80)${NC}"
-        echo -e "GET / HTTP/1.1[crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
-        echo -e "\n${ORANGE}(Payload Custom Bypass - Port 8880)${NC}"
-        echo -e "GET http://${PRIMARY_DOMAIN}:8880 HTTP/1.1[crlf]Host: [ISP_BUG_HOST][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        echo -e "     ${RED}${BOLD}NO SPAM | NO DDOS | NO TORRENT${NC}"
-        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    else
-        echo -e "\n${RED}[-] Failed to create account. Check logs at /opt/imagitech/logs/imagitech.log${NC}"
-    fi
+        echo -e "${CYAN}=== CREATE ISP BYPASS ACCOUNT ===${NC}"
+        
+        read -p "Username: " USERNAME
+        if [[ -z "$USERNAME" ]]; then 
+            echo -e "${RED}[ERROR] Missing arguments for user creation. Username cannot be empty.${NC}"
+            sleep 1.5; continue
+        fi
+
+        read -p "Password: " PASSWORD
+        if [[ -z "$PASSWORD" ]]; then 
+            echo -e "${RED}[ERROR] Missing arguments for user creation. Password cannot be empty.${NC}"
+            sleep 1.5; continue
+        fi
+
+        read -p "Duration (Days): " DAYS
+        if [[ -z "$DAYS" ]]; then 
+            echo -e "${RED}[ERROR] Missing arguments for user creation. Duration cannot be empty.${NC}"
+            sleep 1.5; continue
+        fi
+
+        # Call the backend API and suppress output
+        /opt/imagitech/bin/imagitech user add "$USERNAME" "$PASSWORD" "$DAYS" > /dev/null 2>&1
+        API_STATUS=$?
+        
+        if [ $API_STATUS -eq 2 ]; then
+            echo -e "\n${ORANGE}[!] User '${USERNAME}' already exists.${NC}"
+            read -p "Do you want to create another user? (y/n): " RETRY
+            if [[ "$RETRY" =~ ^[Yy] ]]; then
+                continue
+            else
+                show_dashboard
+                return
+            fi
+        elif [ $API_STATUS -ne 0 ]; then
+            echo -e "\n${RED}[-] Failed to create account. Check logs at /opt/imagitech/logs/imagitech.log${NC}"
+            read -n 1 -s -r -p "Press any key to return to dashboard..."
+            show_dashboard
+            return
+        fi
+        
+        # If successful, break the loop and show the receipt
+        break
+    done
+
+    # Fetch dynamic data for the payload printout
+    IP_ADDR=$(curl -sS ipv4.icanhazip.com)
+    PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+    EXP_DATE_FORMATTED=$(date -d "+${DAYS} days" +"%B %d, %Y")
+
+    clear
+    echo -e "${GREEN}Account provisioned successfully${NC}       "
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "Username      : ${GREEN}${USERNAME}${NC}"
+    echo -e "Password      : ${GREEN}${PASSWORD}${NC}"
+    echo -e "Expires On    : ${ORANGE}${EXP_DATE_FORMATTED}${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "         ${BOLD}SERVER INFORMATION${NC}          "
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "IP            : ${GREEN}${IP_ADDR}${NC}"
+    echo -e "Host          : ${GREEN}${PRIMARY_DOMAIN}${NC}"
+    echo -e "Nameserver    : ${GREEN}${NS_DOMAIN}${NC}"
+    echo -e "PubKey        : ${ORANGE}${PUB_KEY}${NC}"
+    echo -e "OpenSSH       : ${PORT_SSH:-22}"
+    echo -e "SSH-WS        : ${PORT_WS_HTTP:-80}"
+    echo -e "Custom SSH    : 8880"
+    echo -e "SSH-SSL-WS    : ${PORT_WS_HTTPS:-443}"
+    echo -e "Dropbear      : ${PORT_DROPBEAR:-109}, 143"
+    echo -e "SSL/TLS       : 447, 777"
+    echo -e "SOCKS5        : ${PORT_SOCKS:-1080}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "SSH-80        : ${PRIMARY_DOMAIN}:80@${USERNAME}:${PASSWORD}"
+    echo -e "SSH-8880      : ${PRIMARY_DOMAIN}:8880@${USERNAME}:${PASSWORD}"
+    echo -e "SSH-443       : ${PRIMARY_DOMAIN}:443@${USERNAME}:${PASSWORD}"
+    echo -e "SOCKS5        : ${PRIMARY_DOMAIN}:1080:${USERNAME}:${PASSWORD}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${ORANGE}(Payload WSS)${NC}"
+    echo -e "GET wss://bug.com [protocol][crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
+    echo -e "\n${ORANGE}(Payload WS - Port 80)${NC}"
+    echo -e "GET / HTTP/1.1[crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
+    echo -e "\n${ORANGE}(Payload Custom Bypass - Port 8880)${NC}"
+    echo -e "GET http://${PRIMARY_DOMAIN}:8880 HTTP/1.1[crlf]Host: [ISP_BUG_HOST][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "     ${RED}${BOLD}NO SPAM | NO DDOS | NO TORRENT${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
     echo ""
     read -n 1 -s -r -p "Press any key to return to dashboard..."
     show_dashboard
 }
+
 
 
 execute_del_user() {
