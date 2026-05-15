@@ -1,0 +1,50 @@
+# File: /opt/imagitech/bin/imagitech
+# Purpose: The internal CLI API router.
+
+#!/bin/bash
+source /opt/imagitech/core/imagitech.conf
+source /opt/imagitech/lib/users.sh
+source /opt/imagitech/lib/services.sh
+source /opt/imagitech/lib/system.sh
+
+COMMAND="$1"
+SUBCOMMAND="$2"
+TARGET="$3"
+
+show_help() {
+    echo "IMAGITECH CLI API"
+    echo "Usage: imagitech <resource> <action> [args]"
+    echo ""
+    echo "Commands:"
+    echo "  user add <user> <pass> <days>  - Create a new VPN account"
+    echo "  user del <user>                - Delete a VPN account"
+    echo "  service restart <name>         - Restart a managed service"
+}
+
+case "$COMMAND" in
+    user)
+        case "$SUBCOMMAND" in
+            add)
+                create_vpn_user "$3" "$4" "$5"
+                ;;
+            del)
+                delete_vpn_user "$3"
+                ;;
+            *)
+                show_help ;;
+        esac
+        ;;
+    service)
+        case "$SUBCOMMAND" in
+            restart)
+                restart_service "$TARGET"
+                ;;
+            *)
+                show_help ;;
+        esac
+        ;;
+    *)
+        show_help
+        ;;
+esac
+
