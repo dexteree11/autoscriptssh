@@ -51,15 +51,20 @@ ensure_tls_cert() {
     local cert_path="/opt/imagitech/core/keys/stunnel.pem"
     
     if [ -s "$cert_path" ]; then
-        log_event "INFO" "TLS Certificate already exists for $domain. Skipping ACME request."
+        log_event "INFO" "TLS Certificate already exists. Skipping generation."
         return 0
     fi
     
-    log_event "INFO" "Requesting Let's Encrypt Certificate for $domain..."
-    # We must ensure port 80 is free before running standalone Let's Encrypt
-    systemctl stop ws-proxy nginx apache2 2>/dev/null
+    log_event "INFO" "Generating TLS Certificate for Stunnel..."
     
-    # Proceed with acme.sh issuance...
-    # (Insert your acme.sh logic here, outputting to $cert_path)
+    # Generate an emergency self-signed cert immediately so Stunnel can boot
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout /opt/imagitech/core/keys/private.key \
+        -out /opt/imagitech/core/keys/fullchain.cer \
+        -subj "/C=US/ST=NY/L=NY/O=Imagitech/CN=$domain" >/dev/null 2>&1
+        
+    cat /opt/imagitech/core/keys/fullchain.cer /opt/imagitech/core/keys/private.key > "$cert_path"
+    chmod 600 "$cert_path"
+    
+    log_event "INFO" "Self-signed TLS fallback generated successfully."
 }
-
