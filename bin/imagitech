@@ -1,56 +1,72 @@
+#!/bin/bash
 # File: /opt/imagitech/bin/imagitech
 # Purpose: The internal CLI API router.
 
-#!/bin/bash
 source /opt/imagitech/core/imagitech.conf
 source /opt/imagitech/lib/users.sh
-source /opt/imagitech/lib/services.sh
 source /opt/imagitech/lib/system.sh
+source /opt/imagitech/lib/services.sh
 
 COMMAND="$1"
 SUBCOMMAND="$2"
 TARGET="$3"
+ARG4="$4"
+ARG5="$5"
 
 show_help() {
-    echo "IMAGITECH CLI API"
+    echo -e "\033[0;36mIMAGITECH CLI API\033[0m"
     echo "Usage: imagitech <resource> <action> [args]"
     echo ""
     echo "Commands:"
     echo "  user add <user> <pass> <days>  - Create a new VPN account"
+    echo "  user trial <user> <pass> <hrs> - Create a trial account"
+    echo "  user renew <user> <days>       - Add/deduct days from account"
     echo "  user del <user>                - Delete a VPN account"
     echo "  service restart <name>         - Restart a managed service"
+    echo "  config host <domain>           - Update primary domain"
+    echo "  config ns <domain>             - Update NS domain"
+    echo "  cert renew                     - Force Let's Encrypt renewal"
+    echo "  cert status                    - View Let's Encrypt status"
+    echo "  dnstt renew                    - Generate new SlowDNS keys"
 }
 
 case "$COMMAND" in
     user)
         case "$SUBCOMMAND" in
-            add)
-                create_vpn_user "$3" "$4" "$5"
-                ;;
-            trial)
-                create_trial_user "$3" "$4" "$5"
-                ;;
-            renew)
-                renew_user "$3" "$4"
-                ;;
-            del)
-                delete_vpn_user "$3"
-                ;;
-            *)
-                show_help ;;
+            add)   create_vpn_user "$TARGET" "$ARG4" "$ARG5" ;;
+            trial) create_trial_user "$TARGET" "$ARG4" "$ARG5" ;;
+            renew) renew_user "$TARGET" "$ARG4" ;;
+            del)   delete_vpn_user "$TARGET" ;;
+            *)     show_help ;;
         esac
         ;;
     service)
         case "$SUBCOMMAND" in
-            restart)
-                restart_service "$TARGET"
-                ;;
-            *)
-                show_help ;;
+            restart) restart_service "$TARGET" ;;
+            *)       show_help ;;
+        esac
+        ;;
+    config)
+        case "$SUBCOMMAND" in
+            host) change_host_domain "$TARGET" ;;
+            ns)   change_ns_domain "$TARGET" ;;
+            *)    show_help ;;
+        esac
+        ;;
+    cert)
+        case "$SUBCOMMAND" in
+            renew)  renew_ssl_cert "$TARGET" ;;
+            status) /root/.acme.sh/acme.sh --list ;;
+            *)      show_help ;;
+        esac
+        ;;
+    dnstt)
+        case "$SUBCOMMAND" in
+            renew) generate_dnstt_key ;;
+            *)     show_help ;;
         esac
         ;;
     *)
         show_help
         ;;
 esac
-
