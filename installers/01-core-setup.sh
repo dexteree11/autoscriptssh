@@ -63,5 +63,11 @@ fi
 source /opt/imagitech/lib/db.sh
 init_database
 
+log_event "INFO" "Configuring automatic UI dashboard on root login..."
+if ! grep -qx "menu" /root/.bashrc; then
+    echo -e "\n# Auto-start Imagitech Dashboard" >> /root/.bashrc
+    echo "menu" >> /root/.bashrc
+fi
+
 log_event "INFO" "Phase 1 Complete."
 
