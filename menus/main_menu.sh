@@ -542,20 +542,65 @@ menu_settings() {
         read -p " Select Option : " opt
 
         case $opt in
-            1) echo "Calling API: imagitech sys autoreboot..."; pause ;;
-            2) echo "Calling API: imagitech sys banner..."; pause ;;
+            1) 
+                echo -e "\n${CYAN}Auto Reboot Schedule${NC}"
+                echo "1. Every 6 Hours"
+                echo "2. Every 12 Hours"
+                echo "3. Every 24 Hours"
+                echo "0. Turn Off Auto Reboot"
+                read -p "Select Option: " rb_opt
+                case $rb_opt in
+                    1) /opt/imagitech/bin/imagitech sys autoreboot 6 ;;
+                    2) /opt/imagitech/bin/imagitech sys autoreboot 12 ;;
+                    3) /opt/imagitech/bin/imagitech sys autoreboot 24 ;;
+                    0) /opt/imagitech/bin/imagitech sys autoreboot 0 ;;
+                    *) echo -e "${RED}Invalid selection.${NC}" ;;
+                esac
+                pause ;;
+            2) 
+                echo -e "\n${CYAN}Update SSH Banner${NC}"
+                echo -e "${ORANGE}Note: HTML tags (colors, bold) are applied automatically.${NC}"
+                read -p "Enter new custom message: " new_banner
+                if [[ -n "$new_banner" ]]; then
+                    /opt/imagitech/bin/imagitech sys banner "$new_banner"
+                fi
+                pause ;;
             3) 
-               echo -e "${CYAN}Running Speedtest...${NC}"
-               if ! command -v speedtest-cli &> /dev/null; then apt-get install -y speedtest-cli >/dev/null; fi
+               clear
+               echo -e "${CYAN}Initializing Server Speedtest...${NC}\n"
+               if ! command -v speedtest-cli &> /dev/null; then 
+                   echo -e "${ORANGE}Installing speedtest-cli...${NC}"
+                   apt-get install -y speedtest-cli >/dev/null 2>&1
+               fi
                speedtest-cli
                pause ;;
-            4) echo "Calling API: imagitech sys uninstall..."; pause ;;
+            4) 
+                clear
+                echo -e "${RED}${BOLD}======================================================${NC}"
+                echo -e "${RED}${BOLD}  DANGER: COMPLETELY UNINSTALL IMAGITECH PLATFORM     ${NC}"
+                echo -e "${RED}${BOLD}======================================================${NC}"
+                echo -e "This action will:"
+                echo -e "  - Delete all VPN accounts & databases"
+                echo -e "  - Remove all Sidecars, Ports, and Routing rules"
+                echo -e "  - Wipe the /opt/imagitech directory entirely\n"
+                
+                read -p "Are you absolutely sure? (Type 'YES' to confirm): " confirm_wipe
+                if [ "$confirm_wipe" == "YES" ]; then
+                    echo -e "\n${ORANGE}[*] Wiping infrastructure...${NC}"
+                    /opt/imagitech/bin/imagitech sys uninstall
+                    echo -e "${GREEN}System is clean. Exiting...${NC}"
+                    sleep 2
+                    exit 0
+                else
+                    echo -e "\n${GREEN}Uninstallation aborted.${NC}"
+                    pause
+                fi
+                ;;
             0) return ;;
             *) echo -e "${RED}Invalid option${NC}"; sleep 1 ;;
         esac
     done
 }
-
 # ==========================================================
 # MAIN DASHBOARD LOOP
 # ==========================================================
