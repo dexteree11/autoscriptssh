@@ -5,12 +5,12 @@ source /opt/imagitech/lib/installer_utils.sh
 
 log_event "INFO" "Deploying Multi-Login Enforcement Daemon..."
 
-# 1. Ensure the Python script is in place (Assuming it was downloaded to /tmp)
-cp /tmp/daemon.py /opt/imagitech/services/monitor/daemon.py
+# The master installer already placed the file here, just ensure it's executable
 chmod +x /opt/imagitech/services/monitor/daemon.py
 
 # 2. Stage the Systemd file to temp
 cat <<EOF > /tmp/imagitech-monitor.service.tmp
+
 [Unit]
 Description=Imagitech Real-time Multi-Login Enforcer
 After=network.target sqlite.target dropbear.service
