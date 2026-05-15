@@ -3,6 +3,14 @@
 
 #!/bin/bash
 source /opt/imagitech/core/imagitech.conf
+source /opt/imagitech/lib/system.sh
+
+# --- Root Enforcement ---
+if [ "${EUID}" -ne 0 ]; then
+    echo -e "\033[0;31m[FATAL] You must be root to access the Imagitech Dashboard.\033[0m"
+    echo -e "\033[0;33mType this command to become root: sudo su -\033[0m"
+    exit 1
+fi
 
 # --- ANSI Color Palette ---
 RED='\033[0;31m'
