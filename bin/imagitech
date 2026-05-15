@@ -28,6 +28,9 @@ show_help() {
     echo "  cert renew                     - Force Let's Encrypt renewal"
     echo "  cert status                    - View Let's Encrypt status"
     echo "  dnstt renew                    - Generate new SlowDNS keys"
+    echo "  sys autoreboot <hours>         - Set auto-reboot schedule"
+    echo "  sys banner <text>              - Change SSH banner"
+    echo "  sys uninstall                  - Remove Imagitech completely"
 }
 
 case "$COMMAND" in
@@ -64,6 +67,14 @@ case "$COMMAND" in
         case "$SUBCOMMAND" in
             renew) generate_dnstt_key ;;
             *)     show_help ;;
+        esac
+        ;;
+    sys)
+        case "$SUBCOMMAND" in
+            autoreboot) set_auto_reboot "$TARGET" ;;
+            banner)     change_banner "$TARGET" ;;
+            uninstall)  uninstall_script ;;
+            *)          show_help ;;
         esac
         ;;
     *)
