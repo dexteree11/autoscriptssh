@@ -125,3 +125,65 @@ generate_dnstt_key() {
     
     log_event "INFO" "New DNSTT keys generated. Public key is ready for client payloads."
 }
+
+set_auto_reboot() {
+    local hours="$1"
+    
+    # Safely remove any existing Imagitech reboot cron jobs
+    crontab -l 2>/dev/null | grep -v "/sbin/reboot" | crontab -
+    
+    if [ "$hours" -gt 0 ]; then
+        # Schedule the new reboot (e.g., 0 */6 * * * means minute 0, every 6th hour)
+        (crontab -l 2>/dev/null; echo "0 */$hours * * * /sbin/reboot") | crontab -
+        log_event "INFO" "Server auto-reboot scheduled for every $hours hours."
+    else
+        log_event "INFO" "Server auto-reboot has been disabled."
+    fi
+}
+
+change_banner() {
+    local custom_text="$1"
+    if [[ -z "$custom_text" ]]; then return 1; fi
+    
+    # Write the premium HTML payload for SSH clients
+    cat <<EOF > /etc/issue.net
+<font color='cyan'><b>IMAGITECH ENTERPRISE VPN</b></font><br>
+<font color='green'><b>$custom_text</b></font><br>
+<font color='red'><b>NO SPAM | NO DDOS | NO TORRENT</b></font>
+EOF
+
+    # Restart Dropbear to apply
+    systemctl restart dropbear
+    log_event "INFO" "SSH Banner updated successfully."
+}
+
+uninstall_script() {
+    log_event "WARN" "Initiating complete uninstallation of Imagitech VPN Platform..."
+    
+    # 1. Stop and Disable all managed services
+    local services=(imagitech-ws imagitech-dnstt imagitech-monitor imagitech-badvpn-7100 imagitech-badvpn-7200 imagitech-badvpn-7300 stunnel4 dropbear danted)
+    for svc in "${services[@]}"; do
+        systemctl stop "$svc" >/dev/null 2>&1
+        systemctl disable "$svc" >/dev/null 2>&1
+    done
+    
+    # 2. Remove Systemd Unit Files
+    rm -f /etc/systemd/system/imagitech-*.service
+    systemctl daemon-reload
+    
+    # 3. Clean routing rules (DNSTT Port 53)
+    iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300 2>/dev/null
+    iptables -D INPUT -p udp --dport 5300 -j ACCEPT 2>/dev/null
+    if command -v netfilter-persistent &> /dev/null; then
+        netfilter-persistent save >/dev/null 2>&1
+    fi
+    
+    # 4. Remove Bashrc bindings and Global CLI commands
+    sed -i '/menu/d' /root/.bashrc
+    rm -f /usr/local/bin/imagitech /usr/local/sbin/menu
+    
+    # 5. Nuke the Architecture Directory
+    rm -rf /opt/imagitech
+    
+    log_event "INFO" "Uninstallation complete. Your VPS is now clean."
+}
