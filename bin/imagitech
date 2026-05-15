@@ -30,6 +30,9 @@ case "$COMMAND" in
             trial)
                 create_trial_user "$3" "$4" "$5"
                 ;;
+            renew)
+                renew_user "$3" "$4"
+                ;;
             del)
                 delete_vpn_user "$3"
                 ;;
