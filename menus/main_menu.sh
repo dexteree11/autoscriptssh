@@ -234,9 +234,51 @@ execute_user_details() {
     select_user_from_list
     if [[ -z "$FINAL_USERNAME" ]]; then return; fi
     
-    # Needs backend to fetch password if stored, or just show connection string
-    echo -e "\n${ORANGE}[API] Fetching user details...${NC}"
-    # print_user_receipt "$FINAL_USERNAME" "********" "[Check DB]" "days"
+    # Format the absolute expiry date fetched from the list selection
+    local EXP_DATE_FORMATTED=$(date -d "$FINAL_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$FINAL_EXPIRY")
+    local USERNAME="$FINAL_USERNAME"
+    local PASSWORD="[HIDDEN]" # Security constraint: PAM handles auth, DB stores metadata
+    
+    # Fetch dynamic server data
+    local IP_ADDR=$(curl -sS ipv4.icanhazip.com)
+    local PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+
+    clear
+    echo -e "${GREEN}User details fetched successfully${NC}       "
+    draw_line
+    echo -e "Username      : ${GREEN}${USERNAME}${NC}"
+    echo -e "Password      : ${RED}${PASSWORD}${NC} (Encrypted by OS)"
+    echo -e "Expires On    : ${ORANGE}${EXP_DATE_FORMATTED}${NC}"
+    draw_line
+    echo -e "         ${BOLD}SERVER INFORMATION${NC}          "
+    draw_line
+    echo -e "IP            : ${GREEN}${IP_ADDR}${NC}"
+    echo -e "Host          : ${GREEN}${PRIMARY_DOMAIN}${NC}"
+    echo -e "Nameserver    : ${GREEN}${NS_DOMAIN}${NC}"
+    echo -e "PubKey        : ${ORANGE}${PUB_KEY}${NC}"
+    echo -e "OpenSSH       : ${PORT_SSH:-22}"
+    echo -e "SSH-WS        : ${PORT_WS_HTTP:-80}"
+    echo -e "Custom SSH    : 8880"
+    echo -e "SSH-SSL-WS    : ${PORT_WS_HTTPS:-443}"
+    echo -e "Dropbear      : ${PORT_DROPBEAR:-109}, 143"
+    echo -e "SSL/TLS       : 447, 777"
+    echo -e "SOCKS5        : ${PORT_SOCKS:-1080}"
+    draw_line
+    echo -e "SSH-80        : ${PRIMARY_DOMAIN}:80@${USERNAME}:${PASSWORD}"
+    echo -e "SSH-8880      : ${PRIMARY_DOMAIN}:8880@${USERNAME}:${PASSWORD}"
+    echo -e "SSH-443       : ${PRIMARY_DOMAIN}:443@${USERNAME}:${PASSWORD}"
+    echo -e "SOCKS5        : ${PRIMARY_DOMAIN}:1080:${USERNAME}:${PASSWORD}"
+    draw_line
+    echo -e "${ORANGE}(Payload WSS)${NC}"
+    echo -e "GET wss://bug.com [protocol][crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
+    echo -e "\n${ORANGE}(Payload WS - Port 80)${NC}"
+    echo -e "GET / HTTP/1.1[crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
+    echo -e "\n${ORANGE}(Payload Custom Bypass - Port 8880)${NC}"
+    echo -e "GET http://${PRIMARY_DOMAIN}:8880 HTTP/1.1[crlf]Host: [ISP_BUG_HOST][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
+    draw_line
+    echo -e "     ${RED}${BOLD}NO SPAM | NO DDOS | NO TORRENT${NC}"
+    draw_line
+    
     pause
 }
 
