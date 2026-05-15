@@ -40,7 +40,13 @@ BASE_DIR="/opt/imagitech"
 PRIMARY_DOMAIN="$DOMAIN"
 NS_DOMAIN="$NS_DOMAIN"
 MAX_LOGINS_DEFAULT=1
+PORT_SSH=22
+PORT_DROPBEAR=109
+PORT_WS_HTTP=80
+PORT_WS_HTTPS=443
+PORT_SOCKS=1080
 EOF
+
     log_event "INFO" "Configuration saved to $CONF_FILE."
 else
     log_event "INFO" "Existing configuration found. Sourcing values."
