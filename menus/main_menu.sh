@@ -141,15 +141,42 @@ execute_renew_user() {
     select_user_from_list
     if [[ -z "$FINAL_USERNAME" ]]; then return; fi
 
-    echo -e "\nUser: ${GREEN}${FINAL_USERNAME}${NC} | Current Expiry: ${ORANGE}${FINAL_EXPIRY}${NC}"
+    local OLD_DATE_FORMATTED=$(date -d "$FINAL_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$FINAL_EXPIRY")
+
+    echo -e "\nUser: ${GREEN}${FINAL_USERNAME}${NC} | Current Expiry: ${ORANGE}${OLD_DATE_FORMATTED}${NC}"
     echo -e "Enter days to add (e.g., 30) or days to deduct (e.g., -5):"
     read -p "Modification (Days): " MOD_DAYS
 
-    # API call to be implemented in Step 2
-    echo -e "\n${ORANGE}[API] Sending renewal request to backend...${NC}"
+    # Ensure the input is a valid number (positive or negative)
+    if ! [[ "$MOD_DAYS" =~ ^-?[0-9]+$ ]]; then
+        echo -e "${RED}[-] Invalid input. Please enter a valid number.${NC}"
+        sleep 2; return
+    fi
+
+    # Call the API silently
     /opt/imagitech/bin/imagitech user renew "$FINAL_USERNAME" "$MOD_DAYS" > /dev/null 2>&1
     
-    echo -e "${GREEN}[+] Account validity updated successfully.${NC}"
+    # Fetch the newly updated expiry from the database
+    local NEW_EXPIRY=$(sqlite3 "$DB_PATH" "SELECT expiry_date FROM users WHERE username='$FINAL_USERNAME';" 2>/dev/null)
+    local NEW_DATE_FORMATTED=$(date -d "$NEW_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$NEW_EXPIRY")
+    
+    # Color code the modification output
+    local MOD_DISPLAY=""
+    if [ "$MOD_DAYS" -lt 0 ]; then
+        MOD_DISPLAY="${RED}${MOD_DAYS} Days${NC}"
+    else
+        MOD_DISPLAY="${GREEN}+${MOD_DAYS} Days${NC}"
+    fi
+
+    clear
+    echo -e "${GREEN}Account renewed successfully${NC}       "
+    draw_line
+    echo -e "Username      : ${GREEN}${FINAL_USERNAME}${NC}"
+    echo -e "Modification  : ${MOD_DISPLAY}"
+    echo -e "Old Expiry    : ${ORANGE}${OLD_DATE_FORMATTED}${NC}"
+    echo -e "New Expiry    : ${GREEN}${NEW_DATE_FORMATTED}${NC}"
+    draw_line
+    
     pause
 }
 
