@@ -31,12 +31,11 @@ systemctl restart dropbear
 # --- 2. The Async WebSocket Proxy ---
 log_event "INFO" "Deploying Async WebSocket Multiplexer..."
 
-# Ensure the Python script is copied into the services directory
-# (Assuming the installer downloaded it to /tmp/async-ws-proxy.py)
-cp /tmp/async-ws-proxy.py /opt/imagitech/services/routing/ws-proxy.py
+# The master installer already placed the file here, just ensure it's executable
 chmod +x /opt/imagitech/services/routing/ws-proxy.py
 
 cat <<EOF > /tmp/imagitech-ws.service.tmp
+
 [Unit]
 Description=Imagitech Async WS Multiplexer
 After=network.target dropbear.service
