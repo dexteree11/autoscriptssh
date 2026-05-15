@@ -61,6 +61,7 @@ fetch_file "lib/system.sh" "/opt/imagitech/lib/system.sh"
 fetch_file "lib/installer_utils.sh" "/opt/imagitech/lib/installer_utils.sh"
 fetch_file "lib/db.sh" "/opt/imagitech/lib/db.sh"
 fetch_file "lib/users.sh" "/opt/imagitech/lib/users.sh"
+fetch_file "lib/services.sh" "/opt/imagitech/lib/services.sh"
 
 # Fetching the CLI router and Menu
 fetch_file "bin/imagitech" "/opt/imagitech/bin/imagitech"
