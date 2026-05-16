@@ -142,19 +142,14 @@ set_auto_reboot() {
 }
 
 change_banner() {
-    local custom_text="$1"
-    if [[ -z "$custom_text" ]]; then return 1; fi
+    # Open the file directly in nano for the user
+    nano /etc/issue.net
     
-    # Write the premium HTML payload for SSH clients
-    cat <<EOF > /etc/issue.net
-<font color='cyan'><b>IMAGITECH ENTERPRISE VPN</b></font><br>
-<font color='green'><b>$custom_text</b></font><br>
-<font color='red'><b>NO SPAM | NO DDOS | NO TORRENT</b></font>
-EOF
-
-    # Restart Dropbear to apply
-    systemctl restart dropbear
-    log_event "INFO" "SSH Banner updated successfully."
+    # Once the user exits nano, restart both SSH daemons to apply changes instantly
+    systemctl restart dropbear >/dev/null 2>&1
+    systemctl restart ssh >/dev/null 2>&1 || systemctl restart sshd >/dev/null 2>&1
+    
+    log_event "INFO" "SSH Banner updated and services restarted successfully."
 }
 
 uninstall_script() {
@@ -182,8 +177,12 @@ uninstall_script() {
     sed -i '/menu/d' /root/.bashrc
     rm -f /usr/local/bin/imagitech /usr/local/sbin/menu
     
+    # Clean up the installer script from the root directory
+    rm -f /root/install.sh
+    
     # 5. Nuke the Architecture Directory
     rm -rf /opt/imagitech
     
     log_event "INFO" "Uninstallation complete. Your VPS is now clean."
+    log_event "INFO" "Note: Please disconnect and reconnect to your server to clear your terminal's command cache."
 }
