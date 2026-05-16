@@ -29,7 +29,7 @@ show_help() {
     echo "  cert status                    - View Let's Encrypt status"
     echo "  dnstt renew                    - Generate new SlowDNS keys"
     echo "  sys autoreboot <hours>         - Set auto-reboot schedule"
-    echo "  sys banner <text>              - Change SSH banner"
+    echo "  sys banner                     - Change SSH banner"
     echo "  sys backup                     - Backup database, domains & keys"
     echo "  sys restore <file_path>        - Restore from an archive"
     echo "  sys update                     - Update script from GitHub"
@@ -75,7 +75,7 @@ case "$COMMAND" in
     sys)
         case "$SUBCOMMAND" in
             autoreboot) set_auto_reboot "$TARGET" ;;
-            banner)     change_banner "$TARGET" ;;
+            banner)     change_banner ;;
             backup)     create_backup ;;
             restore)    restore_backup "$TARGET" ;;
             update)     update_script ;;
