@@ -227,8 +227,25 @@ execute_list_users() {
 execute_online_users() {
     clear
     echo -e "${CYAN}=== ACTIVE CONNECTIONS ===${NC}"
-    # API hook for the Monitor Daemon
-    /opt/imagitech/bin/imagitech monitor online
+    draw_line
+    printf "${BOLD}%-20s | %-15s${NC}\n" "USERNAME" "ACTIVE DEVICES"
+    draw_line
+    
+    local raw_data=$(/opt/imagitech/bin/imagitech sys online)
+    
+    if [[ "$raw_data" == *"No active"* ]] || [[ "$raw_data" == *"starting"* ]]; then
+        echo -e "${ORANGE}$raw_data${NC}"
+    else
+        echo "$raw_data" | while IFS='|' read -r uname count; do
+            # Add a red warning if count is high
+            if [ "$count" -ge 3 ]; then
+                printf "${GREEN}%-20s${NC} | ${RED}%-15s${NC}\n" "$uname" "$count"
+            else
+                printf "${GREEN}%-20s${NC} | ${CYAN}%-15s${NC}\n" "$uname" "$count"
+            fi
+        done
+    fi
+    draw_line
     pause
 }
 
