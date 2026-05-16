@@ -187,3 +187,57 @@ uninstall_script() {
     log_event "INFO" "Uninstallation complete. Your VPS is now clean."
     log_event "INFO" "Note: Please disconnect and reconnect to your server to clear your terminal's command cache."
 }
+
+update_script() {
+    log_event "INFO" "Initiating platform update from GitHub..."
+    local repo_url="https://raw.githubusercontent.com/dexteree11/autoscriptssh/main"
+    local tmp_dir="/tmp/imagitech_update"
+
+    # Create a staging area
+    mkdir -p "$tmp_dir"
+
+    # Helper function for safe, verified downloading
+    safe_fetch() {
+        local file_path="$1"
+        local target_path="$2"
+        local filename=$(basename "$file_path")
+        
+        echo -e "  ${CYAN}-> Fetching ${filename}...${NC}"
+        curl -sS -L -o "$tmp_dir/$filename" "$repo_url/$file_path"
+        
+        # Verify it downloaded and isn't a GitHub 404 error
+        if [ -s "$tmp_dir/$filename" ] && ! grep -q "404: Not Found" "$tmp_dir/$filename"; then
+            cp -f "$tmp_dir/$filename" "$target_path"
+            chmod +x "$target_path" 2>/dev/null || true # Ensure execution permissions remain
+        else
+            log_event "ERROR" "Failed to fetch $file_path. Skipping to protect system."
+            echo -e "  ${RED}[!] Failed to fetch $filename${NC}"
+        fi
+    }
+
+    echo -e "\033[0;33m[*] Downloading latest core files...\033[0m"
+    
+    # 1. Update Core Libraries
+    safe_fetch "lib/system.sh" "/opt/imagitech/lib/system.sh"
+    safe_fetch "lib/users.sh" "/opt/imagitech/lib/users.sh"
+    safe_fetch "lib/services.sh" "/opt/imagitech/lib/services.sh"
+    safe_fetch "lib/db.sh" "/opt/imagitech/lib/db.sh"
+    safe_fetch "lib/installer_utils.sh" "/opt/imagitech/lib/installer_utils.sh"
+    
+    # 2. Update APIs and Menus
+    safe_fetch "bin/imagitech" "/opt/imagitech/bin/imagitech"
+    safe_fetch "menus/main_menu.sh" "/opt/imagitech/menus/main_menu.sh"
+    
+    # 3. Update Python Services
+    safe_fetch "services/monitor/daemon.py" "/opt/imagitech/services/monitor/daemon.py"
+    safe_fetch "services/routing/async-ws-proxy.py" "/opt/imagitech/services/routing/ws-proxy.py"
+
+    # Clean up staging area
+    rm -rf "$tmp_dir"
+
+    # Restart background daemons just in case the Python logic was updated
+    systemctl restart imagitech-ws imagitech-monitor >/dev/null 2>&1
+
+    log_event "INFO" "Platform update complete."
+    echo -e "\n\033[0;32m[+] Update applied successfully! System is running the latest version.\033[0m"
+}
