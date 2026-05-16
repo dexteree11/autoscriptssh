@@ -42,14 +42,20 @@ class ImagitechMonitor:
         """Hard-checks the system for actual running Dropbear/SSH processes per user."""
         self.active_sessions.clear()
         try:
-            cmd = "ps -eo user,pid,comm | grep -E 'dropbear|sshd'"
+            # user:32 prevents Linux from truncating 8+ character usernames (e.g., Adminuser -> Adminus+)
+            # Using 'command' instead of 'comm' ensures we catch all Dropbear child processes
+            cmd = "ps -eo user:32,pid,command | grep -E 'dropbear|sshd' | grep -v grep"
             output = subprocess.check_output(cmd, shell=True, text=True)
             
             for line in output.strip().split('\n'):
+                if not line.strip(): continue
                 parts = line.split()
                 if len(parts) >= 3:
                     user, pid = parts[0], parts[1]
-                    if user not in ['root', 'nobody', 'syslog', 'stunnel4', 'messagebus']:
+                    
+                    # Filter out system accounts and daemon listeners
+                    ignored_users = ['root', 'nobody', 'syslog', 'stunnel4', 'messagebus', 'danted', 'systemd-resolve']
+                    if user not in ignored_users:
                         self.active_sessions[user].append(pid)
         except subprocess.CalledProcessError:
             pass # No active connections
