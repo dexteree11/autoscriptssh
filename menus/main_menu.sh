@@ -608,6 +608,80 @@ menu_settings() {
         esac
     done
 }
+
+menu_backup_restore() {
+    while true; do
+        clear
+        draw_line
+        echo -e "                 ${BOLD}BACKUP & RESTORE${NC}                   "
+        draw_line
+        echo -e "  ${CYAN}[01]${NC} Create System Backup"
+        echo -e "  ${CYAN}[02]${NC} Restore from Backup"
+        echo -e ""
+        echo -e "  ${RED}[00]${NC} Return to Main Menu"
+        draw_line
+        read -p " Select Option : " opt
+
+        case $opt in
+            1)
+                echo -e "\n${CYAN}Creating backup archive...${NC}"
+                /opt/imagitech/bin/imagitech sys backup
+                pause
+                ;;
+            2)
+                clear
+                echo -e "${CYAN}=== RESTORE SYSTEM BACKUP ===${NC}"
+                local backup_dir="/opt/imagitech/backups"
+                
+                # Check if directory exists and is not empty
+                if [ ! -d "$backup_dir" ] || [ -z "$(ls -A "$backup_dir" 2>/dev/null)" ]; then
+                    echo -e "\n${ORANGE}[!] No backups found in $backup_dir.${NC}"
+                    pause
+                    continue
+                fi
+
+                echo -e "Available Archives:\n"
+                # Read all tar.gz files into an array, sorted by newest first
+                mapfile -t BACKUP_LIST < <(ls -1t "$backup_dir"/*.tar.gz 2>/dev/null)
+
+                local i=1
+                for b_file in "${BACKUP_LIST[@]}"; do
+                    local b_name=$(basename "$b_file")
+                    local b_size=$(du -h "$b_file" | cut -f1)
+                    local b_date=$(date -r "$b_file" +"%Y-%m-%d %H:%M:%S")
+                    printf "  ${GREEN}[%02d]${NC} %-35s | %-5s | %-20s\n" "$i" "$b_name" "$b_size" "$b_date"
+                    ((i++))
+                done
+                echo -e "\n  ${RED}[00]${NC} Cancel"
+
+                read -p " Select Backup to Restore (S/N): " sel_idx
+                if [[ "$sel_idx" == "0" || -z "$sel_idx" ]]; then continue; fi
+
+                # Validate input is a number within bounds
+                if [[ "$sel_idx" =~ ^[0-9]+$ ]] && [ "$sel_idx" -le "${#BACKUP_LIST[@]}" ] && [ "$sel_idx" -gt 0 ]; then
+                    local target_file="${BACKUP_LIST[$((sel_idx-1))]}"
+                    
+                    echo -e "\n${RED}${BOLD}WARNING: Restoring will instantly overwrite your current users,${NC}"
+                    echo -e "${RED}${BOLD}domains, TLS certificates, and SlowDNS keys!${NC}"
+                    read -p "Are you absolutely sure? (Type 'YES' to confirm): " confirm_res
+                    
+                    if [ "$confirm_res" == "YES" ]; then
+                        echo -e "\n${ORANGE}[*] Restoring system state and rebooting daemons...${NC}"
+                        /opt/imagitech/bin/imagitech sys restore "$target_file"
+                        echo -e "${GREEN}[+] Restore complete! System state reverted successfully.${NC}"
+                    else
+                        echo -e "\n${GREEN}Restore aborted.${NC}"
+                    fi
+                else
+                    echo -e "\n${RED}Invalid selection.${NC}"
+                fi
+                pause
+                ;;
+            0) return ;;
+            *) echo -e "${RED}Invalid option${NC}"; sleep 1 ;;
+        esac
+    done
+}
 # ==========================================================
 # MAIN DASHBOARD LOOP
 # ==========================================================
@@ -650,7 +724,7 @@ show_dashboard() {
             3) menu_services ;;
             4) menu_monitoring ;;
             5) menu_settings ;;
-            6) echo -e "\n${ORANGE}[!] Backup Module Loading...${NC}"; sleep 1 ;;
+            6) menu_backup_restore ;;
             7) 
                clear
                echo -e "${CYAN}=== UPDATE IMAGITECH PLATFORM ===${NC}"
