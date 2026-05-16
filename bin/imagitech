@@ -30,6 +30,9 @@ show_help() {
     echo "  dnstt renew                    - Generate new SlowDNS keys"
     echo "  sys autoreboot <hours>         - Set auto-reboot schedule"
     echo "  sys banner <text>              - Change SSH banner"
+    echo "  sys backup                     - Backup database, domains & keys"
+    echo "  sys restore <file_path>        - Restore from an archive"
+    echo "  sys update                     - Update script from GitHub"
     echo "  sys uninstall                  - Remove Imagitech completely"
 }
 
@@ -73,6 +76,8 @@ case "$COMMAND" in
         case "$SUBCOMMAND" in
             autoreboot) set_auto_reboot "$TARGET" ;;
             banner)     change_banner "$TARGET" ;;
+            backup)     create_backup ;;
+            restore)    restore_backup "$TARGET" ;;
             update)     update_script ;;
             uninstall)  uninstall_script ;;
             *)          show_help ;;
