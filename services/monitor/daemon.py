@@ -7,6 +7,7 @@ import time
 import sqlite3
 import subprocess
 import datetime
+import pwd
 from collections import defaultdict
 
 # --- CONFIGURATION ---
@@ -42,8 +43,7 @@ class ImagitechMonitor:
         """Hard-checks the system for actual running Dropbear/SSH processes per user."""
         self.active_sessions.clear()
         try:
-            # user:32 prevents Linux from truncating 8+ character usernames (e.g., Adminuser -> Adminus+)
-            # Using 'command' instead of 'comm' ensures we catch all Dropbear child processes
+            # user:32 prevents Linux from truncating 8+ character usernames
             cmd = "ps -eo user:32,pid,command | grep -E 'dropbear|sshd' | grep -v grep"
             output = subprocess.check_output(cmd, shell=True, text=True)
             
@@ -53,10 +53,21 @@ class ImagitechMonitor:
                 if len(parts) >= 3:
                     user, pid = parts[0], parts[1]
                     
-                    # Filter out system accounts and daemon listeners
+                    # Filter out strict system accounts
                     ignored_users = ['root', 'nobody', 'syslog', 'stunnel4', 'messagebus', 'danted', 'systemd-resolve']
-                    if user not in ignored_users:
-                        self.active_sessions[user].append(pid)
+                    if user in ignored_users:
+                        continue
+                        
+                    try:
+                        # ONLY monitor accounts explicitly created as VPN users (shell = /bin/false)
+                        # This safely ignores Adminuser, ubuntu, debian, etc.
+                        user_info = pwd.getpwnam(user)
+                        if user_info.pw_shell != '/bin/false':
+                            continue
+                    except KeyError:
+                        pass # User doesn't exist in OS, let the loop catch it and kill the ghost process
+
+                    self.active_sessions[user].append(pid)
         except subprocess.CalledProcessError:
             pass # No active connections
 
@@ -66,25 +77,19 @@ class ImagitechMonitor:
         conn = None
         
         try:
-            # list() forces a copy so we can delete from the dictionary safely during the loop
             for user, policy in list(self.user_policies.items()):
                 try:
                     expiry_date = datetime.datetime.strptime(policy['expiry'], "%Y-%m-%d %H:%M:%S")
                     if now >= expiry_date:
                         self.log_event("INFO", f"User '{user}' expired exactly at {policy['expiry']}. Locking account.")
-                        
-                        # 1. Lock OS Account instantly
                         subprocess.run(["usermod", "-L", "-E", "1", user], check=False, stderr=subprocess.DEVNULL)
-                        # 2. Kill active sessions
                         subprocess.run(["pkill", "-u", user], check=False, stderr=subprocess.DEVNULL)
                         
-                        # 3. Update DB
                         if not conn:
                             conn = sqlite3.connect(self.db_path)
                         conn.cursor().execute("UPDATE users SET status='EXPIRED' WHERE username=?", (user,))
                         conn.commit()
                         
-                        # Remove from memory so we don't check it again
                         del self.user_policies[user]
                 except Exception as e:
                     self.log_event("ERROR", f"Date parsing error for {user}: {e}")
@@ -97,7 +102,6 @@ class ImagitechMonitor:
         for user, pids in self.active_sessions.items():
             policy = self.user_policies.get(user)
             
-            # If user is not in the active database at all (deleted or expired), kill them
             if not policy:
                 self.log_event("WARN", f"Unauthorized ghost session detected: {user}. Terminating.")
                 subprocess.run(["pkill", "-u", user], check=False, stderr=subprocess.DEVNULL)
@@ -105,7 +109,6 @@ class ImagitechMonitor:
                 
             max_allowed = policy['max_logins']
             
-            # 0 means UNLIMITED. Only enforce if max_allowed > 0.
             if max_allowed > 0 and len(pids) > max_allowed:
                 self.log_event("WARN", f"Violation detected: {user} has {len(pids)} sessions (Max: {max_allowed}). Terminating.")
                 subprocess.run(["pkill", "-u", user], check=False, stderr=subprocess.DEVNULL)
