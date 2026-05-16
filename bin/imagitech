@@ -12,6 +12,7 @@ SUBCOMMAND="$2"
 TARGET="$3"
 ARG4="$4"
 ARG5="$5"
+ARG6="$6"
 
 show_help() {
     echo -e "\033[0;36mIMAGITECH CLI API\033[0m"
@@ -39,7 +40,7 @@ show_help() {
 case "$COMMAND" in
     user)
         case "$SUBCOMMAND" in
-            add)   create_vpn_user "$TARGET" "$ARG4" "$ARG5" ;;
+            add)   create_vpn_user "$TARGET" "$ARG4" "$ARG5" "$ARG6" ;;
             trial) create_trial_user "$TARGET" "$ARG4" "$ARG5" ;;
             renew) renew_user "$TARGET" "$ARG4" ;;
             del)   delete_vpn_user "$TARGET" ;;
