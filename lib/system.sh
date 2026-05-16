@@ -145,9 +145,10 @@ change_banner() {
     # Open the file directly in nano for the user
     nano /etc/issue.net
     
-    # Once the user exits nano, restart both SSH daemons to apply changes instantly
+    # Once the user exits nano, restart daemons to apply changes instantly
     systemctl restart dropbear >/dev/null 2>&1
     systemctl restart ssh >/dev/null 2>&1 || systemctl restart sshd >/dev/null 2>&1
+    systemctl restart ssh.socket >/dev/null 2>&1 # Ubuntu 24.04 fix
     
     log_event "INFO" "SSH Banner updated and services restarted successfully."
 }
