@@ -9,6 +9,7 @@ create_vpn_user() {
     local username="$1"
     local password="$2"
     local days="$3"
+    local max_logins="${4:-2}"
     
     if [[ -z "$username" || -z "$password" || -z "$days" ]]; then
         log_event "ERROR" "Missing arguments for user creation."
@@ -31,9 +32,9 @@ create_vpn_user() {
 
     # 2. Insert metadata to SQLite
     local uuid=$(uuidgen)
-    db_query "INSERT INTO users (username, uuid, expiry_date) VALUES ('$username', '$uuid', '$exp_date');"
-
-    log_event "INFO" "Successfully provisioned user: $username for $days days."
+    db_query "INSERT INTO users (username, uuid, expiry_date, max_logins) VALUES ('$username', '$uuid', '$exp_date', $max_logins);"
+    
+    log_event "INFO" "Successfully provisioned user: $username for $days days (Max Logins: $max_logins)."
     return 0
 }
 
