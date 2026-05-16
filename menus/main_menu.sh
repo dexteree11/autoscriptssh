@@ -651,7 +651,19 @@ show_dashboard() {
             4) menu_monitoring ;;
             5) menu_settings ;;
             6) echo -e "\n${ORANGE}[!] Backup Module Loading...${NC}"; sleep 1 ;;
-            7) echo -e "\n${CYAN}[*] Checking GitHub repository for updates...${NC}"; sleep 1 ;;
+            7) 
+               clear
+               echo -e "${CYAN}=== UPDATE IMAGITECH PLATFORM ===${NC}"
+               echo -e "${ORANGE}This will fetch the latest core files from GitHub.${NC}"
+               echo -e "Your users, database, domains, and configurations will ${GREEN}NOT${NC} be affected.\n"
+               
+               read -p "Proceed with update? (y/n): " confirm_update
+               if [[ "$confirm_update" =~ ^[Yy] ]]; then
+                   echo ""
+                   /opt/imagitech/bin/imagitech sys update
+                   pause
+               fi
+               ;;
             8) 
                read -p "Are you sure you want to reboot the server? (y/n): " confirm
                if [[ "$confirm" =~ ^[Yy] ]]; then reboot; fi
