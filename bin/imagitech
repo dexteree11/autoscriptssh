@@ -81,6 +81,13 @@ case "$COMMAND" in
             restore)    restore_backup "$TARGET" ;;
             update)     update_script ;;
             uninstall)  uninstall_script ;;
+            online)
+                if [ -f "/opt/imagitech/core/online_users.txt" ]; then
+                    cat "/opt/imagitech/core/online_users.txt"
+                else
+                    echo "Daemon is starting up..."
+                fi
+                ;;
             *)          show_help ;;
         esac
         ;;
