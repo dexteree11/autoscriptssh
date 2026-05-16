@@ -47,7 +47,8 @@ fetch_file() {
     echo -e "  -> Fetching: ${remote_path}"
     curl -sS -L -o "$local_path" "${REPO_URL}/${remote_path}"
     
-    if [ ! -s "$local_path" ] || grep -q "404: Not Found" "$local_path"; then
+    # FIX: Use regex bracket so the file doesn't literally contain the 404 string
+    if [ ! -s "$local_path" ] || grep -q "404: N[o]t Found" "$local_path"; then
         echo -e "${RED}[FATAL] Failed to download ${remote_path}. Halting to prevent system corruption.${NC}"
         exit 1
     fi
