@@ -27,12 +27,21 @@ cat <<'EOF' > /etc/issue.net
 <b><font color="#ff00ff">USE RESPONSIBLY • ENJOY FAST & SECURE ACCESS</font></b>
 EOF
 
-# Enforce banner on OpenSSH globally (Debian 11/12 & Ubuntu 22/24 fix)
+# Enforce banner globally (Ubuntu 20/22/24 & Debian 11/12 fix)
+# 1. Fallback for older OS
 sed -i 's/#Banner.*/Banner \/etc\/issue.net/g' /etc/ssh/sshd_config
 if ! grep -q "^Banner /etc/issue.net" /etc/ssh/sshd_config; then
     echo "Banner /etc/issue.net" >> /etc/ssh/sshd_config
 fi
+
+# 2. Priority Drop-in for Modern OS (Ubuntu 24.04+)
+mkdir -p /etc/ssh/sshd_config.d
+echo "Banner /etc/issue.net" > /etc/ssh/sshd_config.d/99-imagitech-banner.conf
+
+# 3. Reload Daemons (Including Ubuntu 24 Socket Activation)
+systemctl daemon-reload
 systemctl restart ssh >/dev/null 2>&1 || systemctl restart sshd >/dev/null 2>&1
+systemctl restart ssh.socket >/dev/null 2>&1
 
 # Configure Dropbear ports
 cat <<EOF > /etc/default/dropbear
