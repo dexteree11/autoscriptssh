@@ -98,7 +98,11 @@ execute_add_user() {
         read -p "Duration (Days): " DAYS
         if [[ -z "$DAYS" ]]; then echo -e "${RED}[ERROR] Duration cannot be empty.${NC}"; sleep 1.5; continue; fi
 
-        /opt/imagitech/bin/imagitech user add "$USERNAME" "$PASSWORD" "$DAYS" > /dev/null 2>&1
+        read -p "Max Simultaneous Logins (0 = Unlimited) [Default: 2]: " MAX_LOGINS
+        MAX_LOGINS=${MAX_LOGINS:-2}
+
+        # Update the API call to include it
+        /opt/imagitech/bin/imagitech user add "$USERNAME" "$PASSWORD" "$DAYS" "$MAX_LOGINS" > /dev/null 2>&1
         API_STATUS=$?
         
         if [ $API_STATUS -eq 2 ]; then
