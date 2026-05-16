@@ -241,3 +241,51 @@ update_script() {
     log_event "INFO" "Platform update complete."
     echo -e "\n\033[0;32m[+] Update applied successfully! System is running the latest version.\033[0m"
 }
+
+create_backup() {
+    log_event "INFO" "Initiating system state backup..."
+    local backup_dir="/opt/imagitech/backups"
+    
+    # Ensure backup directory exists
+    mkdir -p "$backup_dir"
+    
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local backup_file="$backup_dir/imagitech_backup_$timestamp.tar.gz"
+
+    # Move into the opt directory so the tar paths are clean and relative
+    cd /opt/imagitech
+    
+    # Compress the State (DB, Config, Keys)
+    tar -czf "$backup_file" core/database.db core/imagitech.conf core/keys/ >/dev/null 2>&1
+
+    if [ -f "$backup_file" ]; then
+        log_event "INFO" "Backup successfully created: $backup_file"
+        echo -e "\033[0;32m[+] System state safely archived to:\033[0m"
+        echo -e "    $backup_file"
+    else
+        log_event "ERROR" "Failed to create system backup."
+        echo -e "\033[0;31m[-] Backup creation failed.\033[0m"
+    fi
+}
+
+restore_backup() {
+    local backup_file="$1"
+    
+    if [ ! -f "$backup_file" ]; then
+        log_event "ERROR" "Backup file not found: $backup_file"
+        return 1
+    fi
+
+    log_event "WARN" "Restoring system state from: $backup_file..."
+
+    # Extract the archive over the existing files
+    tar -xzf "$backup_file" -C /opt/imagitech >/dev/null 2>&1
+
+    # Fix permissions for sensitive keys just in case
+    chmod 600 /opt/imagitech/core/keys/* 2>/dev/null || true
+
+    # Restart all routing and data plane services so they read the restored DB and Keys
+    systemctl restart imagitech-ws imagitech-dnstt stunnel4 dropbear >/dev/null 2>&1
+
+    log_event "INFO" "System state successfully restored."
+}
