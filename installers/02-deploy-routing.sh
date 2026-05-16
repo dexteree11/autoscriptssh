@@ -1,7 +1,7 @@
-# File: /root/imagitech-install/02-deploy-routing.sh
+#!/bin/bash
+# File: /opt/imagitech/installers/02-deploy-routing.sh
 # Purpose: Idempotent deployment of Dropbear, Stunnel, and the Async Proxy.
 
-#!/bin/bash
 source /opt/imagitech/core/imagitech.conf
 source /opt/imagitech/lib/installer_utils.sh
 
@@ -62,7 +62,6 @@ log_event "INFO" "Deploying Async WebSocket Multiplexer..."
 chmod +x /opt/imagitech/services/routing/ws-proxy.py
 
 cat <<EOF > /tmp/imagitech-ws.service.tmp
-
 [Unit]
 Description=Imagitech Async WS Multiplexer
 After=network.target dropbear.service
@@ -99,6 +98,14 @@ socket = r:TCP_NODELAY=1
 [ssh-ws-ssl]
 accept = ${PORT_WS_HTTPS}
 connect = 127.0.0.1:${PORT_WS_HTTP}
+
+[dropbear-ssl-447]
+accept = 447
+connect = 127.0.0.1:${PORT_DROPBEAR}
+
+[dropbear-ssl-777]
+accept = 777
+connect = 127.0.0.1:${PORT_DROPBEAR}
 EOF
 
 # Ensure Stunnel boot flag is enabled
@@ -108,4 +115,3 @@ systemctl enable stunnel4 >/dev/null 2>&1
 systemctl restart stunnel4
 
 log_event "INFO" "Routing Engine Deployed Successfully."
-
