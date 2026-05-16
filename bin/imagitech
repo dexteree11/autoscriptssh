@@ -73,6 +73,7 @@ case "$COMMAND" in
         case "$SUBCOMMAND" in
             autoreboot) set_auto_reboot "$TARGET" ;;
             banner)     change_banner "$TARGET" ;;
+            update)     update_script ;;
             uninstall)  uninstall_script ;;
             *)          show_help ;;
         esac
