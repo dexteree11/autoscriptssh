@@ -558,12 +558,19 @@ menu_settings() {
                 esac
                 pause ;;
             2) 
-                echo -e "\n${CYAN}Update SSH Banner${NC}"
-                echo -e "${ORANGE}Note: HTML tags (colors, bold) are applied automatically.${NC}"
-                read -p "Enter new custom message: " new_banner
-                if [[ -n "$new_banner" ]]; then
-                    /opt/imagitech/bin/imagitech sys banner "$new_banner"
-                fi
+                clear
+                echo -e "\n${CYAN}=== UPDATE SSH BANNER ===${NC}"
+                echo -e "${ORANGE}Opening /etc/issue.net in nano editor...${NC}"
+                echo -e "Instructions:"
+                echo -e "  1. Edit your HTML code."
+                echo -e "  2. Press ${GREEN}CTRL + O${NC} then ${GREEN}ENTER${NC} to save."
+                echo -e "  3. Press ${GREEN}CTRL + X${NC} to exit."
+                echo ""
+                read -n 1 -s -r -p "Press any key to open the editor..."
+                
+                # Call the API which now handles launching nano natively
+                /opt/imagitech/bin/imagitech sys banner
+                
                 pause ;;
             3) 
                clear
