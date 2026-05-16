@@ -9,13 +9,32 @@ log_event "INFO" "Deploying Phase 2: Data Plane & Routing Engine"
 
 safe_create_dir "/opt/imagitech/services/routing"
 
-# --- 1. Dropbear Configuration ---
-log_event "INFO" "Configuring Dropbear SSH..."
+# --- 1. Configure Dropbear & OpenSSH ---
+log_event "INFO" "Configuring Dropbear and OpenSSH..."
 
-# Write the premium banner
-echo "<font color='green'><b>IMAGITECH ENTERPRISE VPN</b></font><br><font color='red'><b>NO SPAM | NO DDOS</b></font>" > /etc/issue.net
+# Write the Premium Default Banner
+cat <<'EOF' > /etc/issue.net
+<b><font color="#00aaaa">PREMIUM SERVER • POWERED BY †hε drεαmεr</font></b><br>
+<font color="#00aaaa">━━━━━━━━━━━━━━━━━━━━━</font><br><br>
+<b><font color="#ff00ff">JOIN TELEGRAM 👇 IMAGI TECH</font></b><br>
+<font color="#ff00ff">t.me/imagitech001</font><br><br>
+<font color="#00aaaa">━━━━━━━━━━━━━━━━━━━━━</font><br><br>
+<b><font color="#ff0000">TERMS OF SERVICE</font></b><br><br>
+<font color="#ff8800">• NO ABUSE / NO SPAM / NO ILLEGAL USE</font><br>
+<font color="#ff8800">• DO NOT SHARE CONFIGS PUBLICLY</font><br>
+<font color="#ff8800">• VIOLATION = ACCESS TERMINATED</font><br><br>
+<font color="#00aaaa">━━━━━━━━━━━━━━━━━━━━━</font><br><br>
+<b><font color="#ff00ff">USE RESPONSIBLY • ENJOY FAST & SECURE ACCESS</font></b>
+EOF
 
-# Configure Dropbear ports from our global config
+# Enforce banner on OpenSSH globally (Debian 11/12 & Ubuntu 22/24 fix)
+sed -i 's/#Banner.*/Banner \/etc\/issue.net/g' /etc/ssh/sshd_config
+if ! grep -q "^Banner /etc/issue.net" /etc/ssh/sshd_config; then
+    echo "Banner /etc/issue.net" >> /etc/ssh/sshd_config
+fi
+systemctl restart ssh >/dev/null 2>&1 || systemctl restart sshd >/dev/null 2>&1
+
+# Configure Dropbear ports
 cat <<EOF > /etc/default/dropbear
 NO_START=0
 DROPBEAR_PORT=${PORT_DROPBEAR}
