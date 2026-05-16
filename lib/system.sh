@@ -205,8 +205,8 @@ update_script() {
         echo -e "  ${CYAN}-> Fetching ${filename}...${NC}"
         curl -sS -L -o "$tmp_dir/$filename" "$repo_url/$file_path"
         
-        # Verify it downloaded and isn't a GitHub 404 error
-        if [ -s "$tmp_dir/$filename" ] && ! grep -q "404: Not Found" "$tmp_dir/$filename"; then
+        # FIX: Use regex bracket so the file doesn't literally contain the 404 string
+        if [ -s "$tmp_dir/$filename" ] && ! grep -q "404: N[o]t Found" "$tmp_dir/$filename"; then
             cp -f "$tmp_dir/$filename" "$target_path"
             chmod +x "$target_path" 2>/dev/null || true # Ensure execution permissions remain
         else
