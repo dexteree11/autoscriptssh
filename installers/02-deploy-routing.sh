@@ -43,12 +43,11 @@ systemctl daemon-reload
 systemctl restart ssh >/dev/null 2>&1 || systemctl restart sshd >/dev/null 2>&1
 systemctl restart ssh.socket >/dev/null 2>&1
 
-# Configure Dropbear ports
+# Configure Dropbear ports and explicitly force the banner flag (-b)
 cat <<EOF > /etc/default/dropbear
 NO_START=0
 DROPBEAR_PORT=${PORT_DROPBEAR}
-DROPBEAR_EXTRA_ARGS="-p 143 -w -g"
-DROPBEAR_BANNER="/etc/issue.net"
+DROPBEAR_EXTRA_ARGS="-p 143 -w -g -b /etc/issue.net"
 DROPBEAR_RECEIVE_WINDOW=65536
 EOF
 
