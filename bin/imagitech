@@ -88,6 +88,7 @@ case "$COMMAND" in
                     echo "Daemon is starting up..."
                 fi
                 ;;
+            fail2ban)   install_fail2ban ;;
             *)          show_help ;;
         esac
         ;;
