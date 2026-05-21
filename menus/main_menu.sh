@@ -39,7 +39,6 @@ fetch_server_geo() {
         local country=$(echo "$geo_data" | sed -n '1p')
         
         # 4. Extract org and strip the trailing ' (region)' text using sed
-        #    's/ *(.*)//' means: find an optional space followed by (anything), and replace with nothing.
         local org_clean=$(echo "$geo_data" | sed -n '2p' | sed 's/ *(.*)//')
         
         # 5. Save to the core architecture directory
@@ -88,7 +87,7 @@ menu_ssh_panel() {
     while true; do
         clear
         draw_line
-        echo -e "                   ${BOLD}SSH ACCOUNT PANEL${NC}                    "
+        echo -e "                   ${BOLD}SSH ACCOUNT PANEL${NC}                   "
         draw_line
         echo -e "  ${CYAN}[01]${NC} Create SSH Account"
         echo -e "  ${CYAN}[02]${NC} Create Trial SSH"
@@ -587,6 +586,7 @@ menu_settings() {
         echo -e "  ${CYAN}[02]${NC} Change SSH Banner"
         echo -e "  ${CYAN}[03]${NC} Speedtest Server"
         echo -e "  ${CYAN}[04]${NC} Uninstall Script"
+        echo -e "  ${CYAN}[05]${NC} Refresh Server Geo-Data"
         echo -e ""
         echo -e "  ${RED}[00]${NC} Return to Main Menu"
         draw_line
@@ -654,6 +654,12 @@ menu_settings() {
                     pause
                 fi
                 ;;
+            5)
+                echo -e "\n${CYAN}[*] Flushing Server Geo-Data cache...${NC}"
+                rm -f /opt/imagitech/core/server_geo.env
+                fetch_server_geo
+                echo -e "${GREEN}[+] Geographic data successfully refreshed!${NC}"
+                pause ;;
             0) return ;;
             *) echo -e "${RED}Invalid option${NC}"; sleep 1 ;;
         esac
@@ -733,6 +739,7 @@ menu_backup_restore() {
         esac
     done
 }
+
 # ==========================================================
 # MAIN DASHBOARD LOOP
 # ==========================================================
@@ -743,7 +750,7 @@ show_dashboard() {
         get_db_stats
 
         draw_top
-        echo -e "${CYAN}│${NC} ${BOLD}${GREEN}            IMAGITECH DASHBOARD          ${NC} ${CYAN}${NC}"
+        echo -e "${CYAN}│${NC} ${BOLD}${GREEN}             IMAGITECH DASHBOARD             ${NC} ${CYAN}│${NC}"
         draw_mid
         echo -e "  ${ORANGE}✦ Server IP${NC}       : ${GREEN}${SERVER_IP}${NC} ${CYAN}(${SERVER_COUNTRY})${NC}"
         echo -e "  ${ORANGE}✦ ISP${NC}             : ${CYAN}${SERVER_ISP}${NC}"
@@ -762,9 +769,9 @@ show_dashboard() {
         echo -e "  Active Users : ${GREEN}${ACTIVE_USERS}${NC} / ${TOTAL_USERS}    Expired : ${RED}${EXPIRED_USERS}${NC}"
         draw_mid
         
-        echo -e "  ${CYAN}[01]${NC} SSH PANEL           ${CYAN}[02]${NC} DOMAIN & SSL"
-        echo -e "  ${CYAN}[03]${NC} RUNNING SERVICES    ${CYAN}[04]${NC} MONITORING"
-        echo -e "  ${CYAN}[05]${NC} SETTINGS            ${CYAN}[06]${NC} BACKUP & RESTORE"
+        echo -e "  ${CYAN}[01]${NC} SSH PANEL            ${CYAN}[02]${NC} DOMAIN & SSL"
+        echo -e "  ${CYAN}[03]${NC} RUNNING SERVICES     ${CYAN}[04]${NC} MONITORING"
+        echo -e "  ${CYAN}[05]${NC} SETTINGS             ${CYAN}[06]${NC} BACKUP & RESTORE"
         echo -e "  ${CYAN}[07]${NC} UPDATE SCRIPT       ${CYAN}[08]${NC} REBOOT"
         echo -e ""
         echo -e "  ${RED}[00]${NC} EXIT"
