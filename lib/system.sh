@@ -235,6 +235,38 @@ update_script() {
     # Clean up staging area
     rm -rf "$tmp_dir"
 
+    # 4. Execute Database Migrations (NEW FIX)
+    echo -e "  ${CYAN}-> Running database migrations...${NC}"
+    source /opt/imagitech/lib/db.sh
+    init_database >/dev/null 2>&1
+
+    # Restart background daemons just in case the Python logic was updated
+    systemctl restart imagitech-ws imagitech-monitor >/dev/null 2>&1
+
+    log_event "INFO" "Platform update complete."
+    echo -e "\n\033[0;32m[+] Update applied successfully! System is running the latest version.\033[0m"
+}
+
+    echo -e "\033[0;33m[*] Downloading latest core files...\033[0m"
+    
+    # 1. Update Core Libraries
+    safe_fetch "lib/system.sh" "/opt/imagitech/lib/system.sh"
+    safe_fetch "lib/users.sh" "/opt/imagitech/lib/users.sh"
+    safe_fetch "lib/services.sh" "/opt/imagitech/lib/services.sh"
+    safe_fetch "lib/db.sh" "/opt/imagitech/lib/db.sh"
+    safe_fetch "lib/installer_utils.sh" "/opt/imagitech/lib/installer_utils.sh"
+    
+    # 2. Update APIs and Menus
+    safe_fetch "bin/imagitech" "/opt/imagitech/bin/imagitech"
+    safe_fetch "menus/main_menu.sh" "/opt/imagitech/menus/main_menu.sh"
+    
+    # 3. Update Python Services
+    safe_fetch "services/monitor/daemon.py" "/opt/imagitech/services/monitor/daemon.py"
+    safe_fetch "services/routing/async-ws-proxy.py" "/opt/imagitech/services/routing/ws-proxy.py"
+
+    # Clean up staging area
+    rm -rf "$tmp_dir"
+
     # Restart background daemons just in case the Python logic was updated
     systemctl restart imagitech-ws imagitech-monitor >/dev/null 2>&1
 
