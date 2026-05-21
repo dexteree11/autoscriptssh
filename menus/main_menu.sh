@@ -794,14 +794,13 @@ show_dashboard() {
         printf "  ${CYAN}Monitor : %b${NC}\n" "$(check_service imagitech-monitor)"
         draw_mid
         
-        echo -e "  ${CYAN}[ Database Overview ]${NC}"
         echo -e "  Active Users : ${GREEN}${ACTIVE_USERS}${NC} / ${TOTAL_USERS}    Expired : ${RED}${EXPIRED_USERS}${NC}"
         draw_mid
         
         echo -e "  ${CYAN}[01]${NC} SSH PANEL            ${CYAN}[02]${NC} DOMAIN & SSL"
         echo -e "  ${CYAN}[03]${NC} RUNNING SERVICES     ${CYAN}[04]${NC} MONITORING"
         echo -e "  ${CYAN}[05]${NC} SETTINGS             ${CYAN}[06]${NC} BACKUP & RESTORE"
-        echo -e "  ${CYAN}[07]${NC} UPDATE SCRIPT       ${CYAN}[08]${NC} REBOOT"
+        echo -e "  ${CYAN}[07]${NC} UPDATE SCRIPT        ${CYAN}[08]${NC} REBOOT"
         echo -e ""
         echo -e "  ${RED}[00]${NC} EXIT"
         draw_bot
