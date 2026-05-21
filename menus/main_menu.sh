@@ -604,6 +604,7 @@ menu_settings() {
         echo -e "  ${CYAN}[03]${NC} Speedtest Server"
         echo -e "  ${CYAN}[04]${NC} Uninstall Script"
         echo -e "  ${CYAN}[05]${NC} Refresh Server Geo-Data"
+        echo -e "  ${CYAN}[06]${NC} Deploy Fail2Ban Firewall"
         echo -e ""
         echo -e "  ${RED}[00]${NC} Return to Main Menu"
         draw_line
