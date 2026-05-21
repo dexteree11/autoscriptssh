@@ -677,6 +677,17 @@ menu_settings() {
                 fetch_server_geo
                 echo -e "${GREEN}[+] Geographic data successfully refreshed!${NC}"
                 pause ;;
+            6)
+                clear
+                echo -e "\n${CYAN}=== DEPLOY FAIL2BAN FIREWALL ===${NC}"
+                echo -e "${ORANGE}This will automatically install and configure Fail2Ban${NC}"
+                echo -e "to instantly block bots that fail 3 login attempts.\n"
+                read -p "Proceed with deployment? (y/n): " confirm_f2b
+                if [[ "$confirm_f2b" =~ ^[Yy] ]]; then
+                    echo ""
+                    /opt/imagitech/bin/imagitech sys fail2ban
+                fi
+                pause ;;
             0) return ;;
             *) echo -e "${RED}Invalid option${NC}"; sleep 1 ;;
         esac
