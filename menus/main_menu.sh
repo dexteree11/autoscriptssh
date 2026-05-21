@@ -562,14 +562,25 @@ menu_services() {
 # ==========================================================
 # [04] MONITORING
 # ==========================================================
+format_bytes() {
+    local bytes=$1
+    if [[ -z "$bytes" || "$bytes" -eq 0 ]]; then
+        echo "0.00 MB"
+    elif [[ $bytes -ge 1073741824 ]]; then
+        echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1073741824}") GB"
+    else
+        echo "$(awk "BEGIN {printf \"%.2f\", $bytes/1048576}") MB"
+    fi
+}
+
 menu_monitoring() {
     while true; do
         clear
         draw_line
         echo -e "                    ${BOLD}MONITORING${NC}                      "
         draw_line
-        echo -e "  ${CYAN}[01]${NC} Current Bandwidth Usage"
-        echo -e "  ${CYAN}[02]${NC} Top Users"
+        echo -e "  ${CYAN}[01]${NC} Current Bandwidth Usage (All Users)"
+        echo -e "  ${CYAN}[02]${NC} Top Users (Leaderboard)"
         echo -e "  ${CYAN}[03]${NC} Connection Logs"
         echo -e "  ${CYAN}[04]${NC} Failed Login Attempts"
         echo -e "  ${CYAN}[05]${NC} System Resource Usage"
@@ -579,8 +590,50 @@ menu_monitoring() {
         read -p " Select Option : " opt
 
         case $opt in
-            1) echo "Backend tracking module required."; pause ;;
-            2) echo "Backend tracking module required."; pause ;;
+            1) 
+                clear
+                echo -e "${CYAN}=== TOTAL BANDWIDTH USAGE ===${NC}"
+                draw_line
+                printf "${BOLD}%-5s | %-15s | %-15s${NC}\n" "S/N" "USERNAME" "DATA USED"
+                draw_line
+                
+                local i=1
+                sqlite3 -separator '|' "$DB_PATH" "SELECT username, data_usage FROM users ORDER BY username ASC;" | while read -r line; do
+                    local uname=$(echo "$line" | cut -d'|' -f1)
+                    local bytes=$(echo "$line" | cut -d'|' -f2)
+                    local formatted=$(format_bytes "$bytes")
+                    printf "${GREEN}%-5s${NC} | ${CYAN}%-15s${NC} | ${ORANGE}%-15s${NC}\n" "$i" "$uname" "$formatted"
+                    ((i++))
+                done
+                draw_line
+                pause ;;
+            2) 
+                clear
+                echo -e "${CYAN}=== TOP USERS (DATA LEADERBOARD) ===${NC}"
+                draw_line
+                printf "${BOLD}%-5s | %-15s | %-15s${NC}\n" "RANK" "USERNAME" "DATA USED"
+                draw_line
+                
+                local rank=1
+                # Sort by data_usage descending, limit to top 10
+                sqlite3 -separator '|' "$DB_PATH" "SELECT username, data_usage FROM users WHERE data_usage > 0 ORDER BY data_usage DESC LIMIT 10;" | while read -r line; do
+                    local uname=$(echo "$line" | cut -d'|' -f1)
+                    local bytes=$(echo "$line" | cut -d'|' -f2)
+                    local formatted=$(format_bytes "$bytes")
+                    
+                    # Highlight the #1 user in red/gold
+                    if [ "$rank" -eq 1 ]; then
+                        printf "${RED}%-5s${NC} | ${GREEN}%-15s${NC} | ${ORANGE}%-15s${NC}\n" "#$rank" "$uname" "$formatted"
+                    else
+                        printf "${GREEN}%-5s${NC} | ${CYAN}%-15s${NC} | ${ORANGE}%-15s${NC}\n" "#$rank" "$uname" "$formatted"
+                    fi
+                    ((rank++))
+                done
+                if [ "$rank" -eq 1 ]; then
+                    echo -e "  ${ORANGE}No data usage recorded yet.${NC}"
+                fi
+                draw_line
+                pause ;;
             3) tail -n 50 /opt/imagitech/logs/imagitech.log; pause ;;
             4) grep "Failed password" /var/log/auth.log | tail -n 20; pause ;;
             5) htop || top -n 1; pause ;;
