@@ -24,12 +24,42 @@ draw_bot() { echo -e "${CYAN}└────────────────
 draw_line() { echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
 
 # --- Live Data Harvesters ---
+fetch_server_geo() {
+    local geo_file="/opt/imagitech/core/server_geo.env"
+    
+    # Only fetch the data if the cache file doesn't exist yet
+    if [ ! -f "$geo_file" ]; then
+        # 1. Get the public IP
+        local ip=$(curl -sS -4 icanhazip.com 2>/dev/null)
+        
+        # 2. Fetch Geo data using 'org' instead of 'isp'
+        local geo_data=$(curl -sS "http://ip-api.com/line/$ip?fields=country,org" 2>/dev/null)
+        
+        # 3. Parse the lines safely
+        local country=$(echo "$geo_data" | sed -n '1p')
+        
+        # 4. Extract org and strip the trailing ' (region)' text using sed
+        #    's/ *(.*)//' means: find an optional space followed by (anything), and replace with nothing.
+        local org_clean=$(echo "$geo_data" | sed -n '2p' | sed 's/ *(.*)//')
+        
+        # 5. Save to the core architecture directory
+        echo "SERVER_IP=\"${ip:-Unknown}\"" > "$geo_file"
+        echo "SERVER_COUNTRY=\"${country:-Unknown}\"" >> "$geo_file"
+        echo "SERVER_ISP=\"${org_clean:-Unknown}\"" >> "$geo_file"
+    fi
+}
+
 get_system_stats() {
+    # Existing dynamic stats
     OS_INFO=$(grep -w PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
     UPTIME=$(uptime -p | sed 's/up //')
     RAM_USED=$(free -m | awk 'NR==2{print $3}')
     RAM_TOTAL=$(free -m | awk 'NR==2{print $2}')
     CPU_USAGE=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1"%"}')
+    
+    # New Static Geo Stats
+    fetch_server_geo
+    source /opt/imagitech/core/server_geo.env 2>/dev/null
 }
 
 get_db_stats() {
@@ -713,8 +743,10 @@ show_dashboard() {
         get_db_stats
 
         draw_top
-        echo -e "${CYAN}│${NC} ${BOLD}${GREEN}        IMAGITECH ENTERPRISE DASHBOARD          ${NC} ${CYAN}│${NC}"
+        echo -e "${CYAN}│${NC} ${BOLD}${GREEN}        IMAGITECH DASHBOARD          ${NC} ${CYAN}│${NC}"
         draw_mid
+        echo -e "  ${ORANGE}✦ Server IP${NC}       : ${GREEN}${SERVER_IP}${NC} (${SERVER_COUNTRY})"
+        echo -e "  ${ORANGE}✦ ISP${NC}             : ${CYAN}${SERVER_ISP}${NC}"
         echo -e "  ${ORANGE}✦ Server Uptime${NC}   : ${GREEN}${UPTIME}${NC}"
         echo -e "  ${ORANGE}✦ Operating Sys${NC}   : ${CYAN}${OS_INFO}${NC}"
         echo -e "  ${ORANGE}✦ RAM / CPU Load${NC}  : ${GREEN}${RAM_USED}MB / ${RAM_TOTAL}MB${NC}  |  ${CYAN}${CPU_USAGE}${NC}"
