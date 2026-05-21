@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     uuid TEXT,
     protocols TEXT DEFAULT 'ssh,ws,socks',
     expiry_date TEXT NOT NULL,
-    max_logins INTEGER DEFAULT $MAX_LOGINS_DEFAULT,
+    max_logins INTEGER DEFAULT 2,
     bandwidth_limit_mb INTEGER DEFAULT 0,
     bandwidth_used_mb INTEGER DEFAULT 0,
     status TEXT DEFAULT 'ACTIVE',
@@ -24,10 +24,15 @@ CREATE TABLE IF NOT EXISTS users (
 );
 EOF
     chmod 600 "$DB_PATH"
+
+    # Migration: Safely add the precision byte-tracking column if it doesn't exist
+    local col_exists=$(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "data_usage")
+    if [[ -z "$col_exists" ]]; then
+        sqlite3 "$DB_PATH" "ALTER TABLE users ADD COLUMN data_usage BIGINT DEFAULT 0;"
+    fi
 }
 
 db_query() {
     local query="$1"
     sqlite3 "$DB_PATH" "$query"
 }
-
