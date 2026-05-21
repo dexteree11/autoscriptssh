@@ -743,7 +743,7 @@ show_dashboard() {
         get_db_stats
 
         draw_top
-        echo -e "${CYAN}│${NC} ${BOLD}${GREEN}        IMAGITECH DASHBOARD          ${NC} ${CYAN}│${NC}"
+        echo -e "${CYAN}│${NC} ${BOLD}${GREEN}            IMAGITECH DASHBOARD          ${NC} ${CYAN}${NC}"
         draw_mid
         echo -e "  ${ORANGE}✦ Server IP${NC}       : ${GREEN}${SERVER_IP}${NC} ${CYAN}(${SERVER_COUNTRY})${NC}"
         echo -e "  ${ORANGE}✦ ISP${NC}             : ${CYAN}${SERVER_ISP}${NC}"
