@@ -289,3 +289,39 @@ restore_backup() {
 
     log_event "INFO" "System state successfully restored."
 }
+
+install_fail2ban() {
+    log_event "INFO" "Initiating Fail2Ban deployment..."
+
+    # 1. Install the package if missing
+    if ! command -v fail2ban-server &> /dev/null; then
+        echo -e "\033[0;33m[*] Installing Fail2Ban package (this may take a moment)...\033[0m"
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update >/dev/null 2>&1
+        apt-get install -y fail2ban iptables >/dev/null 2>&1
+    fi
+
+    # 2. Deploy the custom Jail configuration
+    echo -e "\033[0;36m[*] Writing strict SSH security rules...\033[0m"
+    cat <<EOF > /etc/fail2ban/jail.local
+[DEFAULT]
+bantime  = 1h
+findtime = 10m
+maxretry = 3
+banaction = iptables-multiport
+
+[sshd]
+enabled = true
+port    = ${PORT_SSH:-22}
+logpath = %(sshd_log)s
+backend = %(sshd_backend)s
+EOF
+
+    # 3. Apply and start the bouncer
+    systemctl daemon-reload
+    systemctl enable fail2ban >/dev/null 2>&1
+    systemctl restart fail2ban >/dev/null 2>&1
+
+    log_event "INFO" "Fail2Ban successfully configured to protect OpenSSH."
+    echo -e "\n\033[0;32m[+] Deployment complete! Fail2Ban is now actively terminating botnets.\033[0m"
+}
