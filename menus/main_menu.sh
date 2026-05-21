@@ -144,28 +144,33 @@ execute_add_user() {
         break
     done
 
-    print_user_receipt "$USERNAME" "$PASSWORD" "$DAYS" "days"
+    # Pass MAX_LOGINS as the 5th argument
+    print_user_receipt "$USERNAME" "$PASSWORD" "$DAYS" "days" "$MAX_LOGINS"
 }
 
 execute_trial_user() {
     clear
     echo -e "${CYAN}=== CREATE TRIAL SSH ACCOUNT ===${NC}"
-    echo -e "${ORANGE}Note: Trial accounts expire automatically.${NC}"
+    echo -e "${ORANGE}Note: Trial accounts expire automatically.${NC}\n"
     
-    read -p "Username [default: trial_$(date +%s | tail -c 4)]: " USERNAME
-    USERNAME=${USERNAME:-"trial_$(date +%s | tail -c 4)"}
+    # Auto-generate username (trial + 4 random digits) and default password
+    USERNAME="trial$((RANDOM % 9000 + 1000))"
+    PASSWORD="1"
     
-    read -p "Password [default: 1234]: " PASSWORD
-    PASSWORD=${PASSWORD:-"1234"}
+    echo -e "Generated Username : ${GREEN}${USERNAME}${NC}"
+    echo -e "Generated Password : ${GREEN}${PASSWORD}${NC}\n"
     
     read -p "Duration in Hours [default: 24]: " HOURS
     HOURS=${HOURS:-24}
 
-    # API call to be implemented in Step 2
+    read -p "Max Simultaneous Logins (0 = Unlimited) [Default: 2]: " MAX_LOGINS
+    MAX_LOGINS=${MAX_LOGINS:-2}
+
     echo -e "\n${ORANGE}[API] Routing trial creation to backend...${NC}"
-    /opt/imagitech/bin/imagitech user trial "$USERNAME" "$PASSWORD" "$HOURS" > /dev/null 2>&1
+    /opt/imagitech/bin/imagitech user trial "$USERNAME" "$PASSWORD" "$HOURS" "$MAX_LOGINS" > /dev/null 2>&1
     
-    print_user_receipt "$USERNAME" "$PASSWORD" "$HOURS" "hours"
+    # Pass MAX_LOGINS as the 5th argument
+    print_user_receipt "$USERNAME" "$PASSWORD" "$HOURS" "hours" "$MAX_LOGINS"
 }
 
 execute_renew_user() {
@@ -384,9 +389,15 @@ print_user_receipt() {
     local PASSWORD="$2"
     local TIME_VAL="$3"
     local TIME_TYPE="$4"
+    local MAX_LOGINS="${5:-2}" # Catch the 5th parameter
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
     PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+    
+    # Pull Geo-Data from the secure cache file
+    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    local COUNTRY="${SERVER_COUNTRY:-Unknown}"
+    local ISP="${SERVER_ISP:-Unknown}"
     
     if [ "$TIME_TYPE" == "hours" ]; then
         EXP_DATE_FORMATTED=$(date -d "+${TIME_VAL} hours" +"%B %d, %Y - %H:%M")
@@ -394,16 +405,22 @@ print_user_receipt() {
         EXP_DATE_FORMATTED=$(date -d "+${TIME_VAL} days" +"%B %d, %Y")
     fi
 
+    # Format the login display beautifully
+    local LOGIN_DISP="$MAX_LOGINS"
+    if [ "$MAX_LOGINS" -eq 0 ]; then LOGIN_DISP="Unlimited"; fi
+
     clear
     echo -e "${GREEN}Account provisioned successfully${NC}       "
     draw_line
     echo -e "Username      : ${GREEN}${USERNAME}${NC}"
     echo -e "Password      : ${GREEN}${PASSWORD}${NC}"
     echo -e "Expires On    : ${ORANGE}${EXP_DATE_FORMATTED}${NC}"
+    echo -e "Max Logins    : ${CYAN}${LOGIN_DISP}${NC}"
     draw_line
     echo -e "         ${BOLD}SERVER INFORMATION${NC}          "
     draw_line
-    echo -e "IP            : ${GREEN}${IP_ADDR}${NC}"
+    echo -e "IP            : ${GREEN}${IP_ADDR}${NC} (${COUNTRY})"
+    echo -e "ISP Provider  : ${CYAN}${ISP}${NC}"
     echo -e "Host          : ${GREEN}${PRIMARY_DOMAIN}${NC}"
     echo -e "Nameserver    : ${GREEN}${NS_DOMAIN}${NC}"
     echo -e "PubKey        : ${ORANGE}${PUB_KEY}${NC}"
