@@ -745,7 +745,7 @@ show_dashboard() {
         draw_top
         echo -e "${CYAN}│${NC} ${BOLD}${GREEN}        IMAGITECH DASHBOARD          ${NC} ${CYAN}│${NC}"
         draw_mid
-        echo -e "  ${ORANGE}✦ Server IP${NC}       : ${GREEN}${SERVER_IP}${NC} (${CYAN}${SERVER_COUNTRY}${NC})"
+        echo -e "  ${ORANGE}✦ Server IP${NC}       : ${GREEN}${SERVER_IP}${NC} ${CYAN}[${SERVER_COUNTRY}]${NC}"
         echo -e "  ${ORANGE}✦ ISP${NC}             : ${CYAN}${SERVER_ISP}${NC}"
         echo -e "  ${ORANGE}✦ Server Uptime${NC}   : ${GREEN}${UPTIME}${NC}"
         echo -e "  ${ORANGE}✦ Operating Sys${NC}   : ${CYAN}${OS_INFO}${NC}"
