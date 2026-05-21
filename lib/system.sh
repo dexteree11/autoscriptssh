@@ -188,65 +188,35 @@ uninstall_script() {
     log_event "INFO" "Note: Please disconnect and reconnect to your server to clear your terminal's command cache."
 }
 
-update_script() {
-    log_event "INFO" "Initiating platform update from GitHub..."
+# Move this OUTSIDE to prevent nested function errors
+safe_fetch() {
     local repo_url="https://raw.githubusercontent.com/dexteree11/autoscriptssh/main"
+    local file_path="$1"
+    local target_path="$2"
     local tmp_dir="/tmp/imagitech_update"
-
-    # Create a staging area
-    mkdir -p "$tmp_dir"
-
-    # Helper function for safe, verified downloading
-    safe_fetch() {
-        local file_path="$1"
-        local target_path="$2"
-        local filename=$(basename "$file_path")
-        
-        echo -e "  ${CYAN}-> Fetching ${filename}...${NC}"
-        curl -sS -L -o "$tmp_dir/$filename" "$repo_url/$file_path"
-        
-        # FIX: Use regex bracket so the file doesn't literally contain the 404 string
-        if [ -s "$tmp_dir/$filename" ] && ! grep -q "404: N[o]t Found" "$tmp_dir/$filename"; then
-            cp -f "$tmp_dir/$filename" "$target_path"
-            chmod +x "$target_path" 2>/dev/null || true # Ensure execution permissions remain
-        else
-            log_event "ERROR" "Failed to fetch $file_path. Skipping to protect system."
-            echo -e "  ${RED}[!] Failed to fetch $filename${NC}"
-        fi
-    }
-
-    echo -e "\033[0;33m[*] Downloading latest core files...\033[0m"
+    local filename=$(basename "$file_path")
     
-    # 1. Update Core Libraries
-    safe_fetch "lib/system.sh" "/opt/imagitech/lib/system.sh"
-    safe_fetch "lib/users.sh" "/opt/imagitech/lib/users.sh"
-    safe_fetch "lib/services.sh" "/opt/imagitech/lib/services.sh"
-    safe_fetch "lib/db.sh" "/opt/imagitech/lib/db.sh"
-    safe_fetch "lib/installer_utils.sh" "/opt/imagitech/lib/installer_utils.sh"
+    echo -e "  \033[0;36m-> Fetching ${filename}...\033[0m"
+    curl -sS -L -o "$tmp_dir/$filename" "$repo_url/$file_path"
     
-    # 2. Update APIs and Menus
-    safe_fetch "bin/imagitech" "/opt/imagitech/bin/imagitech"
-    safe_fetch "menus/main_menu.sh" "/opt/imagitech/menus/main_menu.sh"
-    
-    # 3. Update Python Services
-    safe_fetch "services/monitor/daemon.py" "/opt/imagitech/services/monitor/daemon.py"
-    safe_fetch "services/routing/async-ws-proxy.py" "/opt/imagitech/services/routing/ws-proxy.py"
-
-    # Clean up staging area
-    rm -rf "$tmp_dir"
-
-    # 4. Execute Database Migrations (NEW FIX)
-    echo -e "  ${CYAN}-> Running database migrations...${NC}"
-    source /opt/imagitech/lib/db.sh
-    init_database >/dev/null 2>&1
-
-    # Restart background daemons just in case the Python logic was updated
-    systemctl restart imagitech-ws imagitech-monitor >/dev/null 2>&1
-
-    log_event "INFO" "Platform update complete."
-    echo -e "\n\033[0;32m[+] Update applied successfully! System is running the latest version.\033[0m"
+    # regex bracket protects the code from the quine bug
+    if [ -s "$tmp_dir/$filename" ] && ! grep -q "404: N[o]t Found" "$tmp_dir/$filename"; then
+        cp -f "$tmp_dir/$filename" "$target_path"
+        chmod +x "$target_path" 2>/dev/null || true
+    else
+        log_event "ERROR" "Failed to fetch $file_path. Skipping."
+        echo -e "  \033[0;31m[!] Failed to fetch $filename\033[0m"
+    fi
 }
 
+update_script() {
+    log_event "INFO" "Initiating platform update from GitHub..."
+    local tmp_dir="/tmp/imagitech_update"
+
+    # Ensure a fresh staging area
+    rm -rf "$tmp_dir"
+    mkdir -p "$tmp_dir"
+
     echo -e "\033[0;33m[*] Downloading latest core files...\033[0m"
     
     # 1. Update Core Libraries
@@ -264,10 +234,19 @@ update_script() {
     safe_fetch "services/monitor/daemon.py" "/opt/imagitech/services/monitor/daemon.py"
     safe_fetch "services/routing/async-ws-proxy.py" "/opt/imagitech/services/routing/ws-proxy.py"
 
+    # 4. Database Migrations (Direct query to avoid infinite sourcing loop)
+    echo -e "  \033[0;36m-> Running database migrations...\033[0m"
+    local DB_PATH="/opt/imagitech/core/database.db"
+    local col_exists=$(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "data_usage")
+    if [[ -z "$col_exists" ]]; then
+        sqlite3 "$DB_PATH" "ALTER TABLE users ADD COLUMN data_usage BIGINT DEFAULT 0;"
+    fi
+
     # Clean up staging area
     rm -rf "$tmp_dir"
 
-    # Restart background daemons just in case the Python logic was updated
+    # Restart background daemons to restore services
+    systemctl daemon-reload
     systemctl restart imagitech-ws imagitech-monitor >/dev/null 2>&1
 
     log_event "INFO" "Platform update complete."
