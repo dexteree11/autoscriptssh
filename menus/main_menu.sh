@@ -122,15 +122,18 @@ execute_add_user() {
         
         read -p "Username: " USERNAME
         if [[ -z "$USERNAME" ]]; then echo -e "${RED}[ERROR] Username cannot be empty.${NC}"; sleep 1.5; continue; fi
-        read -p "Password: " PASSWORD
-        if [[ -z "$PASSWORD" ]]; then echo -e "${RED}[ERROR] Password cannot be empty.${NC}"; sleep 1.5; continue; fi
-        read -p "Duration (Days): " DAYS
-        if [[ -z "$DAYS" ]]; then echo -e "${RED}[ERROR] Duration cannot be empty.${NC}"; sleep 1.5; continue; fi
+        
+        # Auto-generate password if left blank
+        local rand_pass=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c8)
+        read -p "Password [default: random]: " PASSWORD
+        PASSWORD=${PASSWORD:-$rand_pass}
+        
+        read -p "Duration (Days) [default: 30]: " DAYS
+        DAYS=${DAYS:-30}
 
         read -p "Max Simultaneous Logins (0 = Unlimited) [Default: 2]: " MAX_LOGINS
         MAX_LOGINS=${MAX_LOGINS:-2}
 
-        # Update the API call to include it
         /opt/imagitech/bin/imagitech user add "$USERNAME" "$PASSWORD" "$DAYS" "$MAX_LOGINS" > /dev/null 2>&1
         API_STATUS=$?
         
@@ -139,37 +142,31 @@ execute_add_user() {
             read -p "Do you want to create another user? (y/n): " RETRY
             if [[ "$RETRY" =~ ^[Yy] ]]; then continue; else return; fi
         elif [ $API_STATUS -ne 0 ]; then
-            echo -e "\n${RED}[-] Failed to create account. Check logs.${NC}"; pause; return
+            echo -e "\n${RED}[-] Failed to create account. Ensure username is 3-32 chars.${NC}"; pause; return
         fi
         break
     done
-
-    # Pass MAX_LOGINS as the 5th argument
     print_user_receipt "$USERNAME" "$PASSWORD" "$DAYS" "days" "$MAX_LOGINS"
 }
 
 execute_trial_user() {
     clear
     echo -e "${CYAN}=== CREATE TRIAL SSH ACCOUNT ===${NC}"
-    echo -e "${ORANGE}Note: Trial accounts expire automatically.${NC}\n"
     
-    # Auto-generate username (trial + 4 random digits) and default password
+    # Auto-generate trial user and random password
     USERNAME="trial$((RANDOM % 9000 + 1000))"
-    PASSWORD="1"
+    PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c6)
     
     echo -e "Generated Username : ${GREEN}${USERNAME}${NC}"
     echo -e "Generated Password : ${GREEN}${PASSWORD}${NC}\n"
     
-    read -p "Duration in Hours [default: 24]: " HOURS
-    HOURS=${HOURS:-24}
+    read -p "Duration in Hours [default: 2]: " HOURS
+    HOURS=${HOURS:-2}
 
     read -p "Max Simultaneous Logins (0 = Unlimited) [Default: 2]: " MAX_LOGINS
     MAX_LOGINS=${MAX_LOGINS:-2}
 
-    echo -e "\n${ORANGE}[API] Routing trial creation to backend...${NC}"
     /opt/imagitech/bin/imagitech user trial "$USERNAME" "$PASSWORD" "$HOURS" "$MAX_LOGINS" > /dev/null 2>&1
-    
-    # Pass MAX_LOGINS as the 5th argument
     print_user_receipt "$USERNAME" "$PASSWORD" "$HOURS" "hours" "$MAX_LOGINS"
 }
 
@@ -220,22 +217,58 @@ execute_renew_user() {
 
 execute_del_user() {
     clear
-    echo -e "${CYAN}=== DELETE SSH ACCOUNT ===${NC}"
-    select_user_from_list
-    if [[ -z "$FINAL_USERNAME" ]]; then return; fi
-
-    /opt/imagitech/bin/imagitech user del "$FINAL_USERNAME" > /dev/null 2>&1
+    echo -e "${CYAN}=== DELETE SSH ACCOUNT(S) ===${NC}"
     
-    local EXP_DATE_FORMATTED=$(date -d "$FINAL_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$FINAL_EXPIRY")
-    clear
-    echo -e "${GREEN}Account deleted successfully${NC}       "
+    mapfile -t USER_LIST < <(sqlite3 -separator '|' "$DB_PATH" "SELECT username FROM users;")
+    local user_count=${#USER_LIST[@]}
+    
+    if [ "$user_count" -eq 0 ]; then
+        echo -e "\n${ORANGE}[!] No users found in the database.${NC}"; pause; return
+    fi
+
     draw_line
-    echo -e "Username      : ${RED}${FINAL_USERNAME}${NC}"
-    echo -e "Expires On    : ${ORANGE}${EXP_DATE_FORMATTED}${NC}"
-    echo -e "Status        : ${RED}Deleted${NC}"
+    printf "${BOLD}%-5s | %-15s${NC}\n" "S/N" "USERNAME"
     draw_line
+    
+    local i=1
+    for uname in "${USER_LIST[@]}"; do
+        printf "${GREEN}%-5s${NC} | ${CYAN}%-15s${NC}\n" "$i" "$uname"
+        ((i++))
+    done
+    draw_line
+    
+    echo -e "Enter S/N(s) separated by commas or ranges (e.g., 1,3 or 4-6)"
+    read -p "Select targets: " TARGET_INPUT
+    if [[ -z "$TARGET_INPUT" ]]; then return; fi
+
+    # Parse ranges and commas into a distinct list of IDs
+    local TO_DELETE=()
+    local parsed_list=$(echo "$TARGET_INPUT" | awk -F, '{
+        for(i=1; i<=NF; i++) {
+            if ($i ~ /-/) { split($i, a, "-"); for(j=a[1]; j<=a[2]; j++) printf "%s ", j } 
+            else { printf "%s ", $i }
+        }
+    }')
+
+    for sn in $parsed_list; do
+        if [[ "$sn" =~ ^[0-9]+$ ]] && [ "$sn" -le "$user_count" ] && [ "$sn" -gt 0 ]; then
+            local index=$((sn - 1))
+            TO_DELETE+=("${USER_LIST[$index]}")
+        fi
+    done
+
+    if [ ${#TO_DELETE[@]} -eq 0 ]; then
+        echo -e "\n${RED}[-] Invalid selection.${NC}"; pause; return
+    fi
+
+    echo -e "\n${ORANGE}[*] Deleting ${#TO_DELETE[@]} account(s)...${NC}"
+    for target in "${TO_DELETE[@]}"; do
+        /opt/imagitech/bin/imagitech user del "$target" > /dev/null 2>&1
+        echo -e "  - Deleted: ${RED}${target}${NC}"
+    done
     pause
 }
+
 
 execute_list_users() {
     clear
@@ -389,63 +422,74 @@ print_user_receipt() {
     local PASSWORD="$2"
     local TIME_VAL="$3"
     local TIME_TYPE="$4"
-    local MAX_LOGINS="${5:-2}" # Catch the 5th parameter
+    local MAX_LOGINS="${5:-2}" 
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
     PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
     
-    # Pull Geo-Data from the secure cache file
     source /opt/imagitech/core/server_geo.env 2>/dev/null
     local COUNTRY="${SERVER_COUNTRY:-Unknown}"
     local ISP="${SERVER_ISP:-Unknown}"
     
+    local EXP_LABEL="Expires On  "
+    local HEADER_MSG="Account provisioned successfully!"
+    local FOOTER_MSG=""
+
     if [ "$TIME_TYPE" == "hours" ]; then
         EXP_DATE_FORMATTED=$(date -d "+${TIME_VAL} hours" +"%B %d, %Y - %H:%M")
+        EXP_LABEL="Valid Until "
+        HEADER_MSG="Trial account provisioned successfully!"
+        FOOTER_MSG="\nOnce the trial expires, the account will be deleted automatically."
     else
         EXP_DATE_FORMATTED=$(date -d "+${TIME_VAL} days" +"%B %d, %Y")
     fi
 
-    # Format the login display beautifully
     local LOGIN_DISP="$MAX_LOGINS"
     if [ "$MAX_LOGINS" -eq 0 ]; then LOGIN_DISP="Unlimited"; fi
 
     clear
-    echo -e "${GREEN}Account provisioned successfully${NC}       "
-    draw_line
-    echo -e "Username      : ${GREEN}${USERNAME}${NC}"
-    echo -e "Password      : ${GREEN}${PASSWORD}${NC}"
-    echo -e "Expires On    : ${ORANGE}${EXP_DATE_FORMATTED}${NC}"
-    echo -e "Max Logins    : ${CYAN}${LOGIN_DISP}${NC}"
-    draw_line
-    echo -e "         ${BOLD}SERVER INFORMATION${NC}          "
-    draw_line
-    echo -e "IP            : ${GREEN}${IP_ADDR}${NC} (${COUNTRY})"
-    echo -e "ISP Provider  : ${CYAN}${ISP}${NC}"
-    echo -e "Host          : ${GREEN}${PRIMARY_DOMAIN}${NC}"
-    echo -e "Nameserver    : ${GREEN}${NS_DOMAIN}${NC}"
-    echo -e "PubKey        : ${ORANGE}${PUB_KEY}${NC}"
-    echo -e "OpenSSH       : ${PORT_SSH:-22}"
-    echo -e "SSH-WS        : ${PORT_WS_HTTP:-80}"
-    echo -e "Custom SSH    : 8880"
-    echo -e "SSH-SSL-WS    : ${PORT_WS_HTTPS:-443}"
-    echo -e "Dropbear      : ${PORT_DROPBEAR:-109}, 143"
-    echo -e "SSL/TLS       : 447, 777"
+    echo -e "${GREEN}${HEADER_MSG}${NC}"
+    echo -e "Copy the details below to your clipboard:\n"
+    
+    echo -e "======== ACCOUNT DETAILS ========"
+    echo -e "Username      : ${USERNAME}"
+    echo -e "Password      : ${PASSWORD}"
+    if [ "$TIME_TYPE" == "hours" ]; then
+        echo -e "Duration      : ${TIME_VAL} hours"
+    fi
+    echo -e "${EXP_LABEL}  : ${EXP_DATE_FORMATTED}"
+    echo -e "Max Limit     : ${LOGIN_DISP}"
+    echo -e "Public IP     : ${IP_ADDR} (${COUNTRY})"
+    echo -e "Host          : ${PRIMARY_DOMAIN}"
+    echo -e "ISP Provider  : ${ISP}"
+    echo -e "========================================"
+    echo -e "Nameserver    : ${NS_DOMAIN}"
+    echo -e "PubKey        : ${PUB_KEY}"
+    echo -e "DNS Resolver  : 1.1.1.1 / 8.8.8.8\n"
+    
+    echo -e "SSH WS(S)     : ${PORT_WS_HTTP:-80} / ${PORT_WS_HTTPS:-443}"
     echo -e "SOCKS5        : ${PORT_SOCKS:-1080}"
-    draw_line
-    echo -e "SSH-80        : ${PRIMARY_DOMAIN}:80@${USERNAME}:${PASSWORD}"
+    echo -e "Custom SSH    : 8880"
+    echo -e "Dropbear      : ${PORT_DROPBEAR:-109}, ${PORT_DROPBEAR_ALT:-143}"
+    echo -e "SSL/TLS       : 447, 777"
+    echo -e "UDPGW         : 7300"
+    echo -e "========================================"
+    echo -e "SSH-80        : ${PRIMARY_DOMAIN}:${PORT_WS_HTTP:-80}@${USERNAME}:${PASSWORD}"
+    echo -e "SSH-443       : ${PRIMARY_DOMAIN}:${PORT_WS_HTTPS:-443}@${USERNAME}:${PASSWORD}"
+    echo -e "SOCKS5        : ${PRIMARY_DOMAIN}:${PORT_SOCKS:-1080}:${USERNAME}:${PASSWORD}"
     echo -e "SSH-8880      : ${PRIMARY_DOMAIN}:8880@${USERNAME}:${PASSWORD}"
-    echo -e "SSH-443       : ${PRIMARY_DOMAIN}:443@${USERNAME}:${PASSWORD}"
-    echo -e "SOCKS5        : ${PRIMARY_DOMAIN}:1080:${USERNAME}:${PASSWORD}"
-    draw_line
-    echo -e "${ORANGE}(Payload WSS)${NC}"
-    echo -e "GET wss://bug.com [protocol][crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
-    echo -e "\n${ORANGE}(Payload WS - Port 80)${NC}"
-    echo -e "GET / HTTP/1.1[crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
-    echo -e "\n${ORANGE}(Payload Custom Bypass - Port 8880)${NC}"
-    echo -e "GET http://${PRIMARY_DOMAIN}:8880 HTTP/1.1[crlf]Host: [ISP_BUG_HOST][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
-    draw_line
-    echo -e "     ${RED}${BOLD}NO SPAM | NO DDOS | NO TORRENT${NC}"
-    draw_line
+    echo -e "========================================"
+    echo -e "WSS Payload"
+    echo -e "GET wss://bug.com [protocol][crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]\n"
+    echo -e "WS Payload"
+    echo -e "GET / HTTP/1.1[crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]\n"
+    echo -e "Custom Payload"
+    echo -e "GET http://${PRIMARY_DOMAIN}:8880 HTTP/1.1[crlf]Host: [SNI_BUG_HOST][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
+    echo -e "========================================"
+    echo -e "     NO SPAM | NO DDOS | NO TORRENT"
+    echo -e "========================================"
+    if [[ -n "$FOOTER_MSG" ]]; then echo -e "${ORANGE}${FOOTER_MSG}${NC}"; fi
+    
     pause
 }
 
