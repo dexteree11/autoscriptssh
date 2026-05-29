@@ -47,7 +47,7 @@ systemctl restart ssh.socket >/dev/null 2>&1
 cat <<EOF > /etc/default/dropbear
 NO_START=0
 DROPBEAR_PORT=${PORT_DROPBEAR}
-DROPBEAR_EXTRA_ARGS="-p 143 -w -g -b /etc/issue.net"
+DROPBEAR_EXTRA_ARGS="-p ${PORT_DROPBEAR_ALT} -w -g -b /etc/issue.net"
 DROPBEAR_RECEIVE_WINDOW=65536
 EOF
 
