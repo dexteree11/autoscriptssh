@@ -5,11 +5,20 @@ source /opt/imagitech/core/imagitech.conf
 source /opt/imagitech/lib/system.sh
 source /opt/imagitech/lib/db.sh
 
+validate_username() {
+    local username="$1"
+    if [[ ! "$username" =~ ^[a-zA-Z0-9_-]{3,32}$ ]]; then
+        log_event "ERROR" "Invalid username '$username'. Use 3-32 alphanumeric chars, hyphens, or underscores only."
+        return 1
+    fi
+}
+
 create_vpn_user() {
     local username="$1"
     local password="$2"
     local days="$3"
     local max_logins="${4:-2}"
+    validate_username "$username" || return 3
     
     if [[ -z "$username" || -z "$password" || -z "$days" ]]; then
         log_event "ERROR" "Missing arguments for user creation."
@@ -43,6 +52,7 @@ create_trial_user() {
     local password="$2"
     local hours="$3"
     local max_logins="${4:-2}" # <--- Catch the 4th argument
+    validate_username "$username" || return 3
 
     if [[ -z "$username" || -z "$password" || -z "$hours" ]]; then
         log_event "ERROR" "Missing arguments for trial creation."
