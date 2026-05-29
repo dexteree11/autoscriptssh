@@ -4,6 +4,11 @@
 import asyncio
 import logging
 import sys
+from collections import defaultdict
+
+# --- Anti-DDoS Connection Limits ---
+MAX_CONN_PER_IP = 10
+ip_conn_count = defaultdict(int)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -30,8 +35,17 @@ async def forward_stream(src_reader, dst_writer, direction):
             await dst_writer.wait_closed()
 
 async def handle_client(reader, writer):
-    """Handles incoming client handshakes and establishes the bi-directional tunnel."""
-    peer = writer.get_extra_info('peername')
+    # 1. Identify the incoming IP address
+    peer_ip = writer.get_extra_info('peername')[0]
+    
+    # 2. Enforce the strict IP limit (Drops the connection immediately if over limit)
+    if ip_conn_count[peer_ip] >= MAX_CONN_PER_IP:
+        writer.close()
+        await writer.wait_closed()
+        return
+    
+    # 3. Increment the active connection counter
+    ip_conn_count[peer_ip] += 1
     
     try:
         # Read the initial payload with a strict timeout to prevent slow-loris attacks
@@ -64,10 +78,16 @@ async def handle_client(reader, writer):
         )
 
     except asyncio.TimeoutError:
-        logging.warning(f"Timeout reading initial payload from {peer}")
+        logging.warning(f"Timeout reading initial payload from {peer_ip}")
     except Exception as e:
-        logging.error(f"Handler exception for {peer}: {e}")
+        logging.error(f"Handler exception for {peer_ip}: {e}")
     finally:
+        # 4. Always decrement the counter when the client disconnects!
+        ip_conn_count[peer_ip] -= 1
+        
+        # Safe cleanup
+        if ip_conn_count[peer_ip] <= 0:
+            del ip_conn_count[peer_ip] # Keep memory clean
         if not writer.is_closing():
             writer.close()
             try:
