@@ -168,14 +168,17 @@ class ImagitechMonitor:
             pass
 
     def run(self):
-        self.log_event("INFO", "Imagitech Monitor Daemon started (V4 Engine: Reaper Active).")
+        self.log_event("INFO", "Monitor Daemon started.")
         while True:
-            self.fetch_user_policies()
-            self.reconcile_state()
-            self.process_bandwidth()
-            self.enforce_expiry_and_limits()
-            self.purge_ghost_accounts()
-            self.write_ui_report()
+            try:
+                self.fetch_user_policies()
+                self.reconcile_state()
+                self.enforce_expiry_and_limits()
+                self.process_bandwidth()
+                self.write_ui_report()
+            except Exception as e:
+                self.log_event("ERROR", f"Daemon cycle failed: {e}. Recovering in 15s.")
+                time.sleep(15)
             time.sleep(CHECK_INTERVAL)
 
 if __name__ == "__main__":
