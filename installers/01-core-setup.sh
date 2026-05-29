@@ -37,14 +37,14 @@ if [ ! -f "$CONF_FILE" ]; then
     log_event "INFO" "Configuration file missing. Initiating interactive setup."
     
     read -p "Primary VPN Domain (e.g., vpn.imagitech.online): " DOMAIN
-    read -p "Nameserver Domain (e.g., ns.imagitech.online): " NS_DOMAIN
+    read -p "Nameserver Domain (e.g., ns-vpnimagitech.online): " NS_DOMAIN
     
     cat <<EOF > "$CONF_FILE"
 # IMAGITECH GLOBAL CONFIGURATION
 BASE_DIR="/opt/imagitech"
 PRIMARY_DOMAIN="$DOMAIN"
 NS_DOMAIN="$NS_DOMAIN"
-MAX_LOGINS_DEFAULT=1
+MAX_LOGINS_DEFAULT=2
 PORT_SSH=22
 PORT_DROPBEAR=109
 PORT_WS_HTTP=80
@@ -66,8 +66,20 @@ init_database
 log_event "INFO" "Configuring automatic UI dashboard on root login..."
 if ! grep -qx "menu" /root/.bashrc; then
     echo -e "\n# Auto-start Imagitech Dashboard" >> /root/.bashrc
-    echo "menu" >> /root/.bashrc
+    echo '[[ $- == *i* ]] && menu' >> /root/.bashrc
 fi
+
+# Setup Log Rotation
+cat <<EOF > /etc/logrotate.d/imagitech
+/opt/imagitech/logs/imagitech.log {
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+EOF
 
 log_event "INFO" "Phase 1 Complete."
 
