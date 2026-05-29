@@ -30,7 +30,7 @@ fetch_server_geo() {
     # Only fetch the data if the cache file doesn't exist yet
     if [ ! -f "$geo_file" ]; then
         # 1. Get the public IP
-        local ip=$(curl -sS -4 icanhazip.com 2>/dev/null)
+        local ip=$(curl -sS -4 ipv4.icanhazip.com 2>/dev/null)
         
         # 2. Fetch Geo data using 'org' instead of 'isp'
         local geo_data=$(curl -sS "http://ip-api.com/line/$ip?fields=country,org" 2>/dev/null)
@@ -331,41 +331,51 @@ execute_user_details() {
     local IP_ADDR=$(curl -sS ipv4.icanhazip.com)
     local PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
 
+    local MAX_LOGINS=$(sqlite3 "$DB_PATH" "SELECT max_logins FROM users WHERE username='$FINAL_USERNAME';" 2>/dev/null || echo "2")
+    local LOGIN_DISP="$MAX_LOGINS"
+    if [ "$MAX_LOGINS" -eq 0 ]; then LOGIN_DISP="Unlimited"; fi
+
+    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    local COUNTRY="${SERVER_COUNTRY:-Unknown}"
+    local ISP="${SERVER_ISP:-Unknown}"
+
     clear
     echo -e "${GREEN}User details fetched successfully${NC}       "
-    draw_line
-    echo -e "Username      : ${GREEN}${USERNAME}${NC}"
+    
+    echo -e "======== ACCOUNT DETAILS ========"
+    echo -e "Username      : ${USERNAME}"
     echo -e "Password      : ${RED}${PASSWORD}${NC} (Encrypted by OS)"
-    echo -e "Expires On    : ${ORANGE}${EXP_DATE_FORMATTED}${NC}"
-    draw_line
-    echo -e "         ${BOLD}SERVER INFORMATION${NC}          "
-    draw_line
-    echo -e "IP            : ${GREEN}${IP_ADDR}${NC}"
-    echo -e "Host          : ${GREEN}${PRIMARY_DOMAIN}${NC}"
-    echo -e "Nameserver    : ${GREEN}${NS_DOMAIN}${NC}"
-    echo -e "PubKey        : ${ORANGE}${PUB_KEY}${NC}"
-    echo -e "OpenSSH       : ${PORT_SSH:-22}"
-    echo -e "SSH-WS        : ${PORT_WS_HTTP:-80}"
-    echo -e "Custom SSH    : 8880"
-    echo -e "SSH-SSL-WS    : ${PORT_WS_HTTPS:-443}"
-    echo -e "Dropbear      : ${PORT_DROPBEAR:-109}, 143"
-    echo -e "SSL/TLS       : 447, 777"
+    echo -e "Expires On    : ${EXP_DATE_FORMATTED}"
+    echo -e "Max Limit     : ${LOGIN_DISP}"
+    echo -e "Public IP     : ${IP_ADDR} (${COUNTRY})"
+    echo -e "Host          : ${PRIMARY_DOMAIN}"
+    echo -e "ISP Provider  : ${ISP}"
+    echo -e "========================================"
+    echo -e "Nameserver    : ${NS_DOMAIN}"
+    echo -e "PubKey        : ${PUB_KEY}"
+    echo -e "DNS Resolver  : 1.1.1.1 / 8.8.8.8\n"
+    
+    echo -e "SSH WS(S)     : ${PORT_WS_HTTP:-80} / ${PORT_WS_HTTPS:-443}"
     echo -e "SOCKS5        : ${PORT_SOCKS:-1080}"
-    draw_line
-    echo -e "SSH-80        : ${PRIMARY_DOMAIN}:80@${USERNAME}:${PASSWORD}"
+    echo -e "Custom SSH    : 8880"
+    echo -e "Dropbear      : ${PORT_DROPBEAR:-109}, ${PORT_DROPBEAR_ALT:-143}"
+    echo -e "SSL/TLS       : 447, 777"
+    echo -e "UDPGW         : 7300"
+    echo -e "========================================"
+    echo -e "SSH-80        : ${PRIMARY_DOMAIN}:${PORT_WS_HTTP:-80}@${USERNAME}:${PASSWORD}"
+    echo -e "SSH-443       : ${PRIMARY_DOMAIN}:${PORT_WS_HTTPS:-443}@${USERNAME}:${PASSWORD}"
+    echo -e "SOCKS5        : ${PRIMARY_DOMAIN}:${PORT_SOCKS:-1080}:${USERNAME}:${PASSWORD}"
     echo -e "SSH-8880      : ${PRIMARY_DOMAIN}:8880@${USERNAME}:${PASSWORD}"
-    echo -e "SSH-443       : ${PRIMARY_DOMAIN}:443@${USERNAME}:${PASSWORD}"
-    echo -e "SOCKS5        : ${PRIMARY_DOMAIN}:1080:${USERNAME}:${PASSWORD}"
-    draw_line
-    echo -e "${ORANGE}(Payload WSS)${NC}"
-    echo -e "GET wss://bug.com [protocol][crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
-    echo -e "\n${ORANGE}(Payload WS - Port 80)${NC}"
-    echo -e "GET / HTTP/1.1[crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]"
-    echo -e "\n${ORANGE}(Payload Custom Bypass - Port 8880)${NC}"
-    echo -e "GET http://${PRIMARY_DOMAIN}:8880 HTTP/1.1[crlf]Host: [ISP_BUG_HOST][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
-    draw_line
-    echo -e "     ${RED}${BOLD}NO SPAM | NO DDOS | NO TORRENT${NC}"
-    draw_line
+    echo -e "========================================"
+    echo -e "WSS Payload"
+    echo -e "GET wss://bug.com [protocol][crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]\n"
+    echo -e "WS Payload"
+    echo -e "GET / HTTP/1.1[crlf]Host: ${PRIMARY_DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]\n"
+    echo -e "Custom Payload"
+    echo -e "GET http://${PRIMARY_DOMAIN}:8880 HTTP/1.1[crlf]Host: [SNI_BUG_HOST][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
+    echo -e "========================================"
+    echo -e "     NO SPAM | NO DDOS | NO TORRENT"
+    echo -e "========================================"
     
     pause
 }

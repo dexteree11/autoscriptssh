@@ -71,12 +71,13 @@ class ImagitechMonitor:
     def process_bandwidth(self):
         conn = None
         try:
-            existing_rules = subprocess.check_output("iptables -S IMAGITECH-ACCT", shell=True, text=True)
             for user in self.user_policies.keys():
-                if f"--uid-owner {user}" not in existing_rules:
+                try:
+                    subprocess.run(f"iptables -C IMAGITECH-ACCT -m owner --uid-owner {user} -j RETURN", shell=True, check=True, stderr=subprocess.DEVNULL)
+                except subprocess.CalledProcessError:
                     subprocess.run(f"iptables -A IMAGITECH-ACCT -m owner --uid-owner {user} -j RETURN", shell=True)
 
-            output = subprocess.check_output("iptables -Z IMAGITECH-ACCT -n -v -x", shell=True, text=True)
+            output = subprocess.check_output("iptables -L IMAGITECH-ACCT -n -v -x -Z", shell=True, text=True)
             
             usage_updates = {}
             for line in output.strip().split('\n')[2:]:
