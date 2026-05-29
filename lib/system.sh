@@ -254,50 +254,61 @@ update_script() {
 }
 
 create_backup() {
-    log_event "INFO" "Initiating system state backup..."
     local backup_dir="/opt/imagitech/backups"
-    
-    # Ensure backup directory exists
     mkdir -p "$backup_dir"
-    
     local timestamp=$(date +"%Y%m%d_%H%M%S")
     local backup_file="$backup_dir/imagitech_backup_$timestamp.tar.gz"
+    local encrypted_file="${backup_file}.enc"
 
-    # Move into the opt directory so the tar paths are clean and relative
     cd /opt/imagitech
-    
-    # Compress the State (DB, Config, Keys)
     tar -czf "$backup_file" core/database.db core/imagitech.conf core/keys/ >/dev/null 2>&1
 
-    if [ -f "$backup_file" ]; then
-        log_event "INFO" "Backup successfully created: $backup_file"
-        echo -e "\033[0;32m[+] System state safely archived to:\033[0m"
-        echo -e "    $backup_file"
-    else
-        log_event "ERROR" "Failed to create system backup."
-        echo -e "\033[0;31m[-] Backup creation failed.\033[0m"
-    fi
-}
-
-restore_backup() {
-    local backup_file="$1"
+    echo -e "\n\033[0;36m=== SECURE BACKUP ===\033[0m"
+    read -s -p "Enter encryption password: " ENC_PASS
+    echo
+    read -s -p "Confirm password: " ENC_PASS2
+    echo
     
-    if [ ! -f "$backup_file" ]; then
-        log_event "ERROR" "Backup file not found: $backup_file"
+    if [ "$ENC_PASS" != "$ENC_PASS2" ]; then
+        echo -e "\033[0;31m[-] Passwords do not match. Aborting.\033[0m"
+        rm -f "$backup_file"
         return 1
     fi
 
-    log_event "WARN" "Restoring system state from: $backup_file..."
+    openssl enc -aes-256-cbc -pbkdf2 -in "$backup_file" -out "$encrypted_file" -k "$ENC_PASS" >/dev/null 2>&1
+    rm -f "$backup_file"
 
-    # Extract the archive over the existing files
-    tar -xzf "$backup_file" -C /opt/imagitech >/dev/null 2>&1
+    echo -e "\n\033[0;32m[+] Encrypted backup saved to:\033[0m $encrypted_file"
+    log_event "INFO" "Encrypted backup created: $encrypted_file"
+}
 
-    # Fix permissions for sensitive keys just in case
+restore_backup() {
+    local encrypted_file="$1"
+    
+    if [ ! -f "$encrypted_file" ]; then
+        log_event "ERROR" "Backup file not found: $encrypted_file"
+        return 1
+    fi
+
+    echo -e "\n\033[0;36m=== DECRYPT BACKUP ===\033[0m"
+    read -s -p "Enter decryption password: " ENC_PASS
+    echo
+
+    local temp_archive="/tmp/restored_backup.tar.gz"
+    
+    # Attempt decryption
+    if ! openssl enc -d -aes-256-cbc -pbkdf2 -in "$encrypted_file" -out "$temp_archive" -k "$ENC_PASS" 2>/dev/null; then
+        echo -e "\033[0;31m[-] Incorrect password or corrupted archive.\033[0m"
+        rm -f "$temp_archive"
+        return 1
+    fi
+
+    log_event "WARN" "Restoring system state from encrypted archive..."
+    tar -xzf "$temp_archive" -C /opt/imagitech >/dev/null 2>&1
+    rm -f "$temp_archive"
+
     chmod 600 /opt/imagitech/core/keys/* 2>/dev/null || true
-
-    # Restart all routing and data plane services so they read the restored DB and Keys
     systemctl restart imagitech-ws imagitech-dnstt stunnel4 dropbear >/dev/null 2>&1
-
     log_event "INFO" "System state successfully restored."
 }
 
