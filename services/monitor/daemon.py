@@ -168,14 +168,15 @@ class ImagitechMonitor:
             pass
 
     def run(self):
-        self.log_event("INFO", "Monitor Daemon started.")
+        self.log_event("INFO", "Monitor Daemon started (Resilient Engine).")
         while True:
             try:
                 self.fetch_user_policies()
                 self.reconcile_state()
-                self.enforce_expiry_and_limits()
-                self.process_bandwidth()
-                self.write_ui_report()
+                self.process_bandwidth()           # 1. Catch bytes first
+                self.enforce_expiry_and_limits()   # 2. Kill violators
+                self.purge_ghost_accounts()        # 3. Clean up the OS
+                self.write_ui_report()             # 4. Update the Bash menu
             except Exception as e:
                 self.log_event("ERROR", f"Daemon cycle failed: {e}. Recovering in 15s.")
                 time.sleep(15)
