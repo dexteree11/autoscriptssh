@@ -57,7 +57,12 @@ setcap cap_net_bind_service=+ep /opt/imagitech/bin/udp-custom 2>/dev/null || tru
 mkdir -p /etc/udp-custom
 cat <<EOF > /etc/udp-custom/config.json
 {
-  "listen": ":36712"
+  "listen": ":36712",
+  "stream_buffer": 33554432,
+  "receive_buffer": 83886080,
+  "auth": {
+    "mode": "passwords"
+  }
 }
 EOF
 
