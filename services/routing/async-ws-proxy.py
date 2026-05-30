@@ -7,14 +7,14 @@ import sys
 from collections import defaultdict
 
 # --- Anti-DDoS Connection Limits ---
-MAX_CONN_PER_IP = 10
+MAX_CONN_PER_IP = 200
 ip_conn_count = defaultdict(int)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Backend configuration (Dropbear native port)
+# Backend configuration (OpenSSH native port for privilege separation)
 BACKEND_HOST = '127.0.0.1'
-BACKEND_PORT = 109
+BACKEND_PORT = 22
 
 async def forward_stream(src_reader, dst_writer, direction):
     """Asynchronously forwards bytes from one stream to another."""

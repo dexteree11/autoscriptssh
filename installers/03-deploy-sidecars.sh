@@ -120,7 +120,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-ExecStart=/opt/imagitech/bin/dnstt-server -udp :5300 -privkey-file /opt/imagitech/core/keys/dnstt.key ${NS_DOMAIN} 127.0.0.1:${PORT_DROPBEAR}
+ExecStart=/opt/imagitech/bin/dnstt-server -udp :5300 -privkey-file /opt/imagitech/core/keys/dnstt.key ${NS_DOMAIN} 127.0.0.1:${PORT_SSH}
 Restart=always
 
 [Install]

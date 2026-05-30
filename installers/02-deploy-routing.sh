@@ -33,10 +33,15 @@ sed -i 's/#Banner.*/Banner \/etc\/issue.net/g' /etc/ssh/sshd_config
 if ! grep -q "^Banner /etc/issue.net" /etc/ssh/sshd_config; then
     echo "Banner /etc/issue.net" >> /etc/ssh/sshd_config
 fi
+sed -i 's/#MaxStartups.*/MaxStartups 1000:30:2000/g' /etc/ssh/sshd_config
+if ! grep -q "^MaxStartups" /etc/ssh/sshd_config; then
+    echo "MaxStartups 1000:30:2000" >> /etc/ssh/sshd_config
+fi
 
 # 2. Priority Drop-in for Modern OS (Ubuntu 24.04+)
 mkdir -p /etc/ssh/sshd_config.d
 echo "Banner /etc/issue.net" > /etc/ssh/sshd_config.d/99-imagitech-banner.conf
+echo "MaxStartups 1000:30:2000" >> /etc/ssh/sshd_config.d/99-imagitech-banner.conf
 
 # 3. Reload Daemons (Including Ubuntu 24 Socket Activation)
 systemctl daemon-reload
@@ -101,11 +106,11 @@ connect = 127.0.0.1:${PORT_WS_HTTP}
 
 [dropbear-ssl-447]
 accept = 447
-connect = 127.0.0.1:${PORT_DROPBEAR}
+connect = 127.0.0.1:${PORT_SSH}
 
 [dropbear-ssl-777]
 accept = 777
-connect = 127.0.0.1:${PORT_DROPBEAR}
+connect = 127.0.0.1:${PORT_SSH}
 EOF
 
 # Ensure Stunnel boot flag is enabled
