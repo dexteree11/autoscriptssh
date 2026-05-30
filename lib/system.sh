@@ -167,9 +167,13 @@ uninstall_script() {
     rm -f /etc/systemd/system/imagitech-*.service
     systemctl daemon-reload
     
-    # 3. Clean routing rules (DNSTT Port 53)
+    # 3. Clean routing rules & accounting chains
     iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300 2>/dev/null
     iptables -D INPUT -p udp --dport 5300 -j ACCEPT 2>/dev/null
+    iptables -D OUTPUT -j IMAGITECH-ACCT 2>/dev/null
+    iptables -F IMAGITECH-ACCT 2>/dev/null
+    iptables -X IMAGITECH-ACCT 2>/dev/null
+    
     if command -v netfilter-persistent &> /dev/null; then
         netfilter-persistent save >/dev/null 2>&1
     fi
@@ -181,7 +185,21 @@ uninstall_script() {
     # Clean up the installer script from the root directory
     rm -f /root/install.sh
     
-    # 5. Nuke the Architecture Directory
+    # 5. Remove all created VPN users (those with /bin/false shell)
+    log_event "INFO" "Removing VPN users..."
+    for u in $(awk -F: '/\/bin\/false/{print $1}' /etc/passwd); do
+        if [[ "$u" != "syslog" && "$u" != "messagebus" && "$u" != "systemd-"* ]]; then
+            userdel -f "$u" 2>/dev/null
+        fi
+    done
+
+    # 6. Clean SSH config
+    rm -f /etc/ssh/sshd_config.d/99-imagitech-banner.conf
+    sed -i '/Banner \/etc\/issue.net/d' /etc/ssh/sshd_config
+    sed -i '/MaxStartups/d' /etc/ssh/sshd_config
+    systemctl restart ssh >/dev/null 2>&1 || systemctl restart sshd >/dev/null 2>&1
+
+    # 7. Nuke the Architecture Directory
     rm -rf /opt/imagitech
     
     log_event "INFO" "Uninstallation complete. Your VPS is now clean."
@@ -261,7 +279,15 @@ create_backup() {
     local encrypted_file="${backup_file}.enc"
 
     cd /opt/imagitech
-    tar -czf "$backup_file" core/database.db core/imagitech.conf core/keys/ >/dev/null 2>&1
+    
+    # Safely extract VPN users' credentials for backup
+    grep "/bin/false" /etc/passwd > core/vpn_passwd.bak 2>/dev/null || true
+    grep -f <(awk -F: '/\/bin\/false/{print $1}' /etc/passwd) /etc/shadow > core/vpn_shadow.bak 2>/dev/null || true
+    
+    tar -czf "$backup_file" core/database.db core/imagitech.conf core/keys/ core/vpn_passwd.bak core/vpn_shadow.bak >/dev/null 2>&1
+    
+    # Cleanup staging files
+    rm -f core/vpn_passwd.bak core/vpn_shadow.bak
 
     echo -e "\n\033[0;36m=== SECURE BACKUP ===\033[0m"
     read -s -p "Enter encryption password: " ENC_PASS
@@ -306,6 +332,29 @@ restore_backup() {
     log_event "WARN" "Restoring system state from encrypted archive..."
     tar -xzf "$temp_archive" -C /opt/imagitech >/dev/null 2>&1
     rm -f "$temp_archive"
+
+    # Restore VPN Linux users safely
+    if [ -f /opt/imagitech/core/vpn_passwd.bak ]; then
+        log_event "INFO" "Restoring VPN user system accounts..."
+        while IFS= read -r line; do
+            local uname=$(echo "$line" | cut -d: -f1)
+            # Remove user if they already exist to prevent duplicates
+            if grep -q "^$uname:" /etc/passwd; then
+                userdel -f "$uname" 2>/dev/null
+            fi
+            echo "$line" >> /etc/passwd
+        done < /opt/imagitech/core/vpn_passwd.bak
+        rm -f /opt/imagitech/core/vpn_passwd.bak
+    fi
+
+    if [ -f /opt/imagitech/core/vpn_shadow.bak ]; then
+        while IFS= read -r line; do
+            local uname=$(echo "$line" | cut -d: -f1)
+            sed -i "/^$uname:/d" /etc/shadow
+            echo "$line" >> /etc/shadow
+        done < /opt/imagitech/core/vpn_shadow.bak
+        rm -f /opt/imagitech/core/vpn_shadow.bak
+    fi
 
     chmod 600 /opt/imagitech/core/keys/* 2>/dev/null || true
     systemctl restart imagitech-ws imagitech-dnstt stunnel4 dropbear >/dev/null 2>&1

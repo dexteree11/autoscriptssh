@@ -803,7 +803,7 @@ menu_settings() {
                    echo -e "${ORANGE}Installing speedtest-cli...${NC}"
                    apt-get install -y speedtest-cli >/dev/null 2>&1
                fi
-               speedtest-cli
+               speedtest-cli --share
                pause ;;
             4) 
                 clear
