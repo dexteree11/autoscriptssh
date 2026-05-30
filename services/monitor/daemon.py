@@ -132,8 +132,13 @@ class ImagitechMonitor:
                     continue
                 max_allowed = policy['max_logins']
                 if max_allowed > 0 and len(pids) > max_allowed:
-                    self.log_event("WARN", f"Multi-login violation: {user}. Terminating.")
+                    self.log_event("WARN", f"Multi-login violation: {user}. Locking account.")
+                    subprocess.run(["usermod", "-L", user], check=False, stderr=subprocess.DEVNULL)
                     subprocess.run(["pkill", "-u", user], check=False, stderr=subprocess.DEVNULL)
+                    
+                    if not conn: conn = sqlite3.connect(self.db_path)
+                    conn.cursor().execute("UPDATE users SET status='LOCKED' WHERE username=?", (user,))
+                    conn.commit()
         finally:
             if conn: conn.close()
 

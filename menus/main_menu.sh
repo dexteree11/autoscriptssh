@@ -96,6 +96,7 @@ menu_ssh_panel() {
         echo -e "  ${CYAN}[05]${NC} Check Online Users"
         echo -e "  ${CYAN}[06]${NC} List Members"
         echo -e "  ${CYAN}[07]${NC} User Details (Print Credentials)"
+        echo -e "  ${CYAN}[08]${NC} Locked/Banned Users"
         echo -e ""
         echo -e "  ${RED}[00]${NC} Return to Main Menu"
         draw_line
@@ -109,6 +110,7 @@ menu_ssh_panel() {
             5) execute_online_users ;;
             6) execute_list_users ;;
             7) execute_user_details ;;
+            8) execute_locked_users ;;
             0) return ;;
             *) echo -e "${RED}Invalid option${NC}"; sleep 1 ;;
         esac
@@ -500,6 +502,52 @@ print_user_receipt() {
     echo -e "========================================"
     if [[ -n "$FOOTER_MSG" ]]; then echo -e "${ORANGE}${FOOTER_MSG}${NC}"; fi
     
+    pause
+}
+
+execute_locked_users() {
+    clear
+    echo -e "${CYAN}=== LOCKED/BANNED USERS ===${NC}"
+    
+    local locked_count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users WHERE status='LOCKED';" 2>/dev/null || echo "0")
+    if [ "$locked_count" -eq 0 ]; then
+        echo -e "\n${GREEN}[+] No locked users found.${NC}"
+        pause
+        return
+    fi
+
+    draw_line
+    printf "${BOLD}%-5s | %-15s | %-15s${NC}\n" "S/N" "USERNAME" "EXPIRY DATE"
+    draw_line
+    
+    mapfile -t USER_LIST < <(sqlite3 -separator '|' "$DB_PATH" "SELECT username, expiry_date FROM users WHERE status='LOCKED';")
+    local i=1
+    for user_data in "${USER_LIST[@]}"; do
+        local uname=$(echo "$user_data" | cut -d'|' -f1)
+        local exp=$(echo "$user_data" | cut -d'|' -f2 | cut -d' ' -f1)
+        printf "${RED}%-5s${NC} | ${CYAN}%-15s${NC} | ${ORANGE}%-15s${NC}\n" "$i" "$uname" "$exp"
+        ((i++))
+    done
+    draw_line
+    echo -e "${ORANGE}[0] Cancel${NC}\n"
+
+    read -p " Select S/N to UNLOCK user: " TARGET_USER
+    if [[ "$TARGET_USER" == "0" || -z "$TARGET_USER" ]]; then return; fi
+
+    local FINAL_USERNAME=""
+    if [[ "$TARGET_USER" =~ ^[0-9]+$ ]] && [ "$TARGET_USER" -le "${#USER_LIST[@]}" ] && [ "$TARGET_USER" -gt 0 ]; then
+        local index=$((TARGET_USER - 1))
+        FINAL_USERNAME=$(echo "${USER_LIST[$index]}" | cut -d'|' -f1)
+    fi
+
+    if [[ -z "$FINAL_USERNAME" ]]; then
+        echo -e "\n${RED}[-] Invalid selection.${NC}"; sleep 1; return
+    fi
+
+    echo -e "\n${GREEN}Unlocking user: ${FINAL_USERNAME}...${NC}"
+    usermod -U "$FINAL_USERNAME" 2>/dev/null
+    sqlite3 "$DB_PATH" "UPDATE users SET status='ACTIVE' WHERE username='$FINAL_USERNAME';" 2>/dev/null
+    echo -e "${GREEN}[+] User unlocked successfully!${NC}"
     pause
 }
 
