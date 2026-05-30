@@ -55,6 +55,13 @@ safe_download_binary "udp-custom"
 # Ensure udp-custom has net_admin capabilities to bind to all ports if needed
 setcap cap_net_bind_service=+ep /opt/imagitech/bin/udp-custom 2>/dev/null || true
 
+mkdir -p /etc/udp-custom
+cat <<EOF > /etc/udp-custom/config.json
+{
+  "listen": ":36712"
+}
+EOF
+
 cat <<EOF > /tmp/imagitech-udp-custom.service.tmp
 [Unit]
 Description=UDP Custom Proxy Server
@@ -63,8 +70,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-# We exclude essential ports from being hijacked by UDP Custom
-ExecStart=/opt/imagitech/bin/udp-custom server -exclude 22,53,80,443
+WorkingDirectory=/etc/udp-custom
+ExecStart=/opt/imagitech/bin/udp-custom server -c /etc/udp-custom/config.json -exclude 22,53,5300,80,443,109,143,447,777,1080
 Restart=always
 
 [Install]
