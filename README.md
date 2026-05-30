@@ -8,7 +8,7 @@ An automated, idempotent, and highly secure VPN & SSH tunneling orchestration sc
 - **OpenSSH & Dropbear:** Multi-port SSH tunneling (Ports 22, 109, 143).
 - **Stunnel4 (SSL/TLS):** Encrypted tunneling bridging (Ports 447, 777).
 - **Asynchronous WebSocket Proxy:** High-performance, async WS multiplexer supporting HTTP Injection and ISP Bypassing on ports 80, 443, and 8880.
-- **BadVPN UDPGW:** Pre-compiled UDP Gateway for handling intensive gaming/voice packets (Ports 7100, 7200, 7300).
+- **UDP Custom:** High-performance direct UDP tunneling for intensive gaming/voice packets (Ports 1-65535).
 - **DNSTT (SlowDNS):** Advanced payload encapsulation through DNS queries for deeply restricted networks (Ports 53, 5300).
 - **Dante SOCKS5 Proxy:** Standalone SOCKS proxy (Port 1080).
 

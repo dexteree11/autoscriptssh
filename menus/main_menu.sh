@@ -636,7 +636,7 @@ menu_services() {
         echo -e "  ${CYAN}SSH-WS (HTTP)     :${NC} 80"
         echo -e "  ${CYAN}Custom SSH (HTTP) :${NC} 8880"
         echo -e "  ${CYAN}SlowDNS (DNSTT)   :${NC} 53, 5300"
-        echo -e "  ${CYAN}BadVPN UDPGW      :${NC} 7100, 7200, 7300"
+        echo -e "  ${CYAN}UDP Custom        :${NC} 1-65535"
         echo -e "  ${CYAN}SOCKS5 Proxy      :${NC} 1080"
         draw_line
         echo -e "  ${CYAN}[01]${NC} Restart All Services"
@@ -945,7 +945,7 @@ show_dashboard() {
         draw_mid
         
         printf "  ${CYAN}WS-Proxy: %b   Stunnel : %b   Dropbear: %b${NC}\n" "$(check_service imagitech-ws)" "$(check_service stunnel4)" "$(check_service dropbear)"
-        printf "  ${CYAN}Dante   : %b   BadVPN  : %b   DNSTT   : %b${NC}\n" "$(check_service danted)" "$(check_service imagitech-badvpn-7100)" "$(check_service imagitech-dnstt)"
+        printf "  ${CYAN}Dante   : %b   UDP Cust: %b   DNSTT   : %b${NC}\n" "$(check_service danted)" "$(check_service imagitech-udp-custom)" "$(check_service imagitech-dnstt)"
         printf "  ${CYAN}Monitor : %b${NC}\n" "$(check_service imagitech-monitor)"
         draw_mid
         

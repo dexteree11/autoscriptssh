@@ -1,5 +1,5 @@
 # File: /root/imagitech-install/03-deploy-sidecars.sh
-# Purpose: Idempotent deployment of Dante, BadVPN, and DNSTT.
+# Purpose: Idempotent deployment of Dante, UDP Custom, and DNSTT.
 
 #!/bin/bash
 source /opt/imagitech/core/imagitech.conf
@@ -47,29 +47,31 @@ EOF
 systemctl enable danted >/dev/null 2>&1
 systemctl restart danted
 
-# --- 2. BadVPN-UDPGW (Pre-compiled) ---
-log_event "INFO" "Deploying BadVPN UDPGW..."
+# --- 2. UDP Custom (Pre-compiled) ---
+log_event "INFO" "Deploying UDP Custom..."
 
-safe_download_binary "badvpn-udpgw"
+safe_download_binary "udp-custom"
 
-for PORT in 7100 7200 7300; do
-cat <<EOF > /tmp/imagitech-badvpn-${PORT}.service.tmp
+# Ensure udp-custom has net_admin capabilities to bind to all ports if needed
+setcap cap_net_bind_service=+ep /opt/imagitech/bin/udp-custom 2>/dev/null || true
+
+cat <<EOF > /tmp/imagitech-udp-custom.service.tmp
 [Unit]
-Description=BadVPN UDPGW on port ${PORT}
+Description=UDP Custom Proxy Server
 After=network.target
 
 [Service]
 Type=simple
-User=nobody
-ExecStart=/opt/imagitech/bin/badvpn-udpgw --listen-addr 127.0.0.1:${PORT} --max-clients 500 --max-connections-for-client 10
+User=root
+# We exclude essential ports from being hijacked by UDP Custom
+ExecStart=/opt/imagitech/bin/udp-custom server -exclude 22,53,80,443
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    safe_deploy_systemd "imagitech-badvpn-${PORT}"
-done
+safe_deploy_systemd "imagitech-udp-custom"
 
 # --- 3. DNSTT / SlowDNS (Pre-compiled) ---
 log_event "INFO" "Deploying DNSTT SlowDNS Server..."

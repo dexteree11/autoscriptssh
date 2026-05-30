@@ -9,7 +9,7 @@ restart_service() {
     
     if [ "$service_name" == "all" ]; then
         log_event "INFO" "Restarting ALL Imagitech services..."
-        local services=(imagitech-ws imagitech-dnstt imagitech-monitor imagitech-badvpn-7100 imagitech-badvpn-7200 imagitech-badvpn-7300 stunnel4 dropbear danted ssh sshd)
+        local services=(imagitech-ws imagitech-dnstt imagitech-monitor imagitech-udp-custom stunnel4 dropbear danted ssh sshd)
         for svc in "${services[@]}"; do
             systemctl restart "$svc" >/dev/null 2>&1
             log_event "INFO" "Restarted $svc"
@@ -19,7 +19,7 @@ restart_service() {
 
     # Strict whitelist to prevent arbitrary systemctl execution
     case "$service_name" in
-        dropbear|stunnel4|imagitech-ws|imagitech-dnstt|imagitech-monitor|danted|imagitech-badvpn-7100|imagitech-badvpn-7200|imagitech-badvpn-7300|ssh|sshd)
+        dropbear|stunnel4|imagitech-ws|imagitech-dnstt|imagitech-monitor|danted|imagitech-udp-custom|ssh|sshd)
             log_event "INFO" "Restarting service: $service_name"
             systemctl restart "$service_name"
             

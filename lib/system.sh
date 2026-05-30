@@ -157,7 +157,7 @@ uninstall_script() {
     log_event "WARN" "Initiating complete uninstallation of Imagitech VPN Platform..."
     
     # 1. Stop and Disable all managed services
-    local services=(imagitech-ws imagitech-dnstt imagitech-monitor imagitech-badvpn-7100 imagitech-badvpn-7200 imagitech-badvpn-7300 stunnel4 dropbear danted)
+    local services=(imagitech-ws imagitech-dnstt imagitech-monitor imagitech-udp-custom stunnel4 dropbear danted)
     for svc in "${services[@]}"; do
         systemctl stop "$svc" >/dev/null 2>&1
         systemctl disable "$svc" >/dev/null 2>&1
