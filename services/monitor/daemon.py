@@ -117,6 +117,8 @@ class ImagitechMonitor:
                         subprocess.run(["pkill", "-u", user], check=False, stderr=subprocess.DEVNULL)
                         # The Reaper: Eradicate the Linux account entirely
                         subprocess.run(["userdel", "-f", user], check=False, stderr=subprocess.DEVNULL)
+                        # SOCKS5 caches credentials, so we forcefully restart Dante to drop rogue connections
+                        subprocess.run(["systemctl", "restart", "danted"], check=False, stderr=subprocess.DEVNULL)
                         
                         if not conn: conn = sqlite3.connect(self.db_path)
                         conn.cursor().execute("UPDATE users SET status='EXPIRED' WHERE username=?", (user,))

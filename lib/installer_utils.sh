@@ -4,11 +4,46 @@
 # Ensure we have our logging function
 source /opt/imagitech/lib/system.sh 2>/dev/null || echo "Warning: system.sh not found."
 
+run_with_spinner() {
+    local message="$1"
+    shift
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    
+    # Start the command in the background
+    "$@" >/dev/null 2>&1 &
+    local pid=$!
+    
+    # Hide cursor
+    tput civis
+    
+    printf "  \033[0;36m%s\033[0m " "$message"
+    while ps -p $pid > /dev/null; do
+        local temp=${spinstr#?}
+        printf "[\033[0;32m%c\033[0m]" "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b"
+    done
+    
+    # Show cursor
+    tput cnorm
+    
+    wait $pid
+    local exit_status=$?
+    
+    if [ $exit_status -eq 0 ]; then
+        printf "[\033[0;32m✓\033[0m]\n"
+    else
+        printf "[\033[0;31m✗\033[0m]\n"
+    fi
+    return $exit_status
+}
+
 ensure_package() {
     local pkg="$1"
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
-        log_event "INFO" "Installing missing dependency: $pkg"
-        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1
+        run_with_spinner "Installing missing dependency ($pkg)..." env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$pkg"
     else
         log_event "INFO" "Dependency satisfied: $pkg"
     fi
@@ -58,10 +93,10 @@ ensure_tls_cert() {
     log_event "INFO" "Generating TLS Certificate for Stunnel..."
     
     # Generate an emergency self-signed cert immediately so Stunnel can boot
-    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    run_with_spinner "Generating TLS Certificate ($domain)..." openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
         -keyout /opt/imagitech/core/keys/private.key \
         -out /opt/imagitech/core/keys/fullchain.cer \
-        -subj "/C=US/ST=NY/L=NY/O=Imagitech/CN=$domain" >/dev/null 2>&1
+        -subj "/C=US/ST=NY/L=NY/O=Imagitech/CN=$domain"
         
     cat /opt/imagitech/core/keys/fullchain.cer /opt/imagitech/core/keys/private.key > "$cert_path"
     chmod 600 "$cert_path"

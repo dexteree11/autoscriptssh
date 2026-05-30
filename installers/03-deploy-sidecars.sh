@@ -16,8 +16,7 @@ safe_download_binary() {
     local dest_path="/opt/imagitech/bin/$bin_name"
     
     if [ ! -x "$dest_path" ]; then
-        log_event "INFO" "Downloading pre-compiled binary: $bin_name"
-        wget -qO "$dest_path" "${BINARY_URL}/${bin_name}"
+        run_with_spinner "Downloading pre-compiled binary ($bin_name)..." wget -qO "$dest_path" "${BINARY_URL}/${bin_name}"
         chmod +x "$dest_path"
         
         # Verify the binary works (prevents corrupted downloads from breaking everything)
